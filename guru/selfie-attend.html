@@ -433,9 +433,12 @@ function bypassCamera() {
 function captureSelfie() {
   if (detectionInterval) clearInterval(detectionInterval);
   const video = document.getElementById('selfie-video');
+  const canvas = document.getElementById('selfie-canvas');
+  const ctx = canvas.getContext('2d');
+  
   canvas.width = video.videoWidth || 640;
   canvas.height = video.videoHeight || 480;
-  ctx.drawImage(video, 0, 0);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   capturedPhoto = canvas.toDataURL('image/jpeg', 0.85);
 
   // Show preview

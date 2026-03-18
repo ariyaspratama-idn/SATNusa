@@ -19,7 +19,7 @@ function hideLoader() {
       <div class="loader-content">
         <img src="${window.location.origin.includes('github.io') || window.location.origin.includes('vercel.app') ? '/assets/img/logo.png' : '../assets/img/logo.png'}" 
              onerror="this.src='/assets/img/logo.png'"
-             class="loader-logo" alt="SATNusa">
+             class="loader-logo" alt="SATNusa (Sistem Absensi Terpadu Nusantara)">
         <div class="loader-spinner"></div>
       </div>
     </div>
@@ -45,7 +45,7 @@ const SCHOOL_LOCATION = {
   lat: -6.200000,
   lng: 106.816666,
   radius: 500, // meter - radius absensi yang diizinkan
-  name: 'SMK AbsensiPro',
+  name: 'SMK SATNusa',
 };
 
 // ===== LocalStorage Helpers =====

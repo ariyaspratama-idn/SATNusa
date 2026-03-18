@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pengaturan Sekolah - SATNusa</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 350px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); z-index: 10; }
+    .lat-lng-display { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  </style>
 </head>
 <body>
 <div id="toast-container"></div>
@@ -51,14 +56,19 @@
             <label>Nama Sekolah / Aplikasi</label>
             <input type="text" id="school-name" class="form-input" required>
           </div>
+          <div class="form-group">
+            <label>Lokasi Sekolah (Peta)</label>
+            <div id="map"></div>
+            <p class="lat-lng-display">Geser penanda (marker) di peta untuk memperbarui koordinat secara otomatis.</p>
+          </div>
           <div class="grid-2">
             <div class="form-group">
-              <label>Latitude (Garis Lintang)</label>
-              <input type="number" step="any" id="school-lat" class="form-input" required placeholder="-6.200000">
+              <label>Latitude</label>
+              <input type="number" step="any" id="school-lat" class="form-input" required>
             </div>
             <div class="form-group">
-              <label>Longitude (Garis Bujur)</label>
-              <input type="number" step="any" id="school-lng" class="form-input" required placeholder="106.816666">
+              <label>Longitude</label>
+              <input type="number" step="any" id="school-lng" class="form-input" required>
             </div>
           </div>
           <div class="form-group">
@@ -82,6 +92,7 @@
 </div>
 
 <script src="../assets/js/app.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const user = Auth.require(ROLES.ADMIN);
@@ -91,11 +102,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('settings-form');
   const currentSettings = Settings.get();
 
-  // Load current values
-  document.getElementById('school-name').value = currentSettings.name;
-  document.getElementById('school-lat').value = currentSettings.lat;
-  document.getElementById('school-lng').value = currentSettings.lng;
-  document.getElementById('school-radius').value = currentSettings.radius;
+  // Inputs
+  const inputName = document.getElementById('school-name');
+  const inputLat = document.getElementById('school-lat');
+  const inputLng = document.getElementById('school-lng');
+  const inputRadius = document.getElementById('school-radius');
+
+  // Load values
+  inputName.value = currentSettings.name;
+  inputLat.value = currentSettings.lat;
+  inputLng.value = currentSettings.lng;
+  inputRadius.value = currentSettings.radius;
+
+  // Initialize Map
+  const map = L.map('map').setView([currentSettings.lat, currentSettings.lng], 15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+  }).addTo(map);
+
+  // Marker
+  const marker = L.marker([currentSettings.lat, currentSettings.lng], { draggable: true }).addTo(map);
+  
+  // Radius Circle
+  let circle = L.circle([currentSettings.lat, currentSettings.lng], {
+    color: 'var(--primary)',
+    fillColor: 'var(--primary)',
+    fillOpacity: 0.2,
+    radius: currentSettings.radius
+  }).addTo(map);
+
+  // Update inputs when marker drags
+  marker.on('dragend', function(e) {
+    const latlng = marker.getLatLng();
+    inputLat.value = latlng.lat.toFixed(6);
+    inputLng.value = latlng.lng.toFixed(6);
+    circle.setLatLng(latlng);
+  });
+
+  // Update map when inputs change
+  [inputLat, inputLng].forEach(el => {
+    el.addEventListener('input', () => {
+      const lat = parseFloat(inputLat.value);
+      const lng = parseFloat(inputLng.value);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const newLatLng = [lat, lng];
+        marker.setLatLng(newLatLng);
+        circle.setLatLng(newLatLng);
+        map.panTo(newLatLng);
+      }
+    });
+  });
+
+  inputRadius.addEventListener('input', () => {
+    const r = parseInt(inputRadius.value);
+    if (!isNaN(r)) circle.setRadius(r);
+  });
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();

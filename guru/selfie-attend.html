@@ -360,18 +360,35 @@ async function startCamera() {
       }
       btnCapture.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;border-top-color:var(--warning);margin-right:6px"></div> Mencari Wajah...';
       
+      let attempts = 0;
       if (detectionInterval) clearInterval(detectionInterval);
       detectionInterval = setInterval(async () => {
         if (video.paused || video.ended) return;
-        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-        if (detections.length > 0 && detections[0].score > 0.3) {
+        
+        // Optimasi untuk kamera buram/resolusi rendah
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.1 });
+        const detections = await faceapi.detectAllFaces(video, options);
+        
+        if (detections.length > 0) {
            btnCapture.disabled = false;
            btnCapture.innerHTML = '📸 Ambil Foto (Wajah &checkmark;)';
            btnCapture.style.background = 'var(--success)';
+           btnCapture.style.color = '#fff';
+           attempts = 0; // Wajah ketemu, reset counter
         } else {
-           btnCapture.disabled = true;
-           btnCapture.innerHTML = 'Posisikan Wajah Anda...';
-           btnCapture.style.background = 'var(--primary)';
+           attempts++;
+           if (attempts > 10) {
+              // Jika gagal deteksi selama 5 detik, bolehkan ambil paksa
+              btnCapture.disabled = false;
+              btnCapture.innerHTML = '⚠️ Paksa Ambil (Kamera Buram)';
+              btnCapture.style.background = 'var(--warning)';
+              btnCapture.style.color = '#000';
+           } else {
+              btnCapture.disabled = true;
+              btnCapture.innerHTML = 'Posisikan Wajah Anda...';
+              btnCapture.style.background = 'var(--primary)';
+              btnCapture.style.color = '#fff';
+           }
         }
       }, 500);
     } catch (e) {

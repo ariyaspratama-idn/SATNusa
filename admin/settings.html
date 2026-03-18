@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengaturan Sekolah - SATNusa</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="../assets/img/logo.png" alt="SATNusa">
+      <div class="sidebar-brand-role">Panel Admin</div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Sistem</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+      <a href="settings.html" class="nav-item active"><span class="nav-icon">⚙️</span> Pengaturan</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebar-user"></div>
+      <div class="powered-by">Powered by <strong>Wave Project. ID</strong></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">⚙️ Pengaturan Sekolah</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Konfigurasi Lokasi & Nama Sekolah</h1>
+        <p class="page-sub">Atur koordinat GPS dan radius absensi untuk verifikasi kehadiran Guru</p>
+      </div>
+
+      <div class="card" style="max-width: 600px;">
+        <form id="settings-form">
+          <div class="form-group">
+            <label>Nama Sekolah / Aplikasi</label>
+            <input type="text" id="school-name" class="form-input" required>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Latitude (Garis Lintang)</label>
+              <input type="number" step="any" id="school-lat" class="form-input" required placeholder="-6.200000">
+            </div>
+            <div class="form-group">
+              <label>Longitude (Garis Bujur)</label>
+              <input type="number" step="any" id="school-lng" class="form-input" required placeholder="106.816666">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Radius Absensi (Meter)</label>
+            <input type="number" id="school-radius" class="form-input" required placeholder="100">
+            <p class="mt-2 text-muted" style="font-size:12px;">Guru harus berada dalam jarak ini dari titik koordinat untuk bisa absen.</p>
+          </div>
+          
+          <div class="alert alert-info mb-4" style="font-size:13px; padding:12px; background:rgba(79,70,229,0.1); border:1px solid var(--primary-light); color:var(--text); border-radius:8px;">
+            <strong>💡 Tips:</strong> Gunakan Google Maps untuk mendapatkan koordinat sekolah Anda. Klik kanan pada titik sekolah di peta untuk melihat Latitude dan Longitude.
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button type="submit" class="btn btn-primary">💾 Simpan Perubahan</button>
+            <button type="button" id="btn-reset" class="btn btn-secondary">🔄 Reset Default</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+
+  const form = document.getElementById('settings-form');
+  const currentSettings = Settings.get();
+
+  // Load current values
+  document.getElementById('school-name').value = currentSettings.name;
+  document.getElementById('school-lat').value = currentSettings.lat;
+  document.getElementById('school-lng').value = currentSettings.lng;
+  document.getElementById('school-radius').value = currentSettings.radius;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const newData = {
+      name: document.getElementById('school-name').value,
+      lat: parseFloat(document.getElementById('school-lat').value),
+      lng: parseFloat(document.getElementById('school-lng').value),
+      radius: parseInt(document.getElementById('school-radius').value),
+    };
+
+    if (Settings.save(newData)) {
+      showToast('✅ Pengaturan berhasil disimpan!', 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if (confirm('Yakin ingin mengembalikan pengaturan ke default?')) {
+      localStorage.removeItem('school_settings');
+      showToast('🔄 Pengaturan telah di-reset', 'info');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  });
+});
+</script>
+</body>
+</html>

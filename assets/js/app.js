@@ -39,14 +39,26 @@ const ROLES = { ADMIN: 'admin', GURU: 'guru', MURID: 'murid' };
 const DAYS = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const DAYS_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 
-// ===== School Location Config =====
-const SCHOOL_LOCATION = {
-  // Koordinat sekolah - ganti sesuai lokasi asli
+// ===== School Location Config & Settings =====
+const DEFAULT_SCHOOL_LOCATION = {
   lat: -6.200000,
   lng: 106.816666,
-  radius: 500, // meter - radius absensi yang diizinkan
+  radius: 500,
   name: 'SMK SATNusa',
 };
+
+const Settings = {
+  get: () => {
+    const saved = localStorage.getItem('school_settings');
+    return saved ? JSON.parse(saved) : DEFAULT_SCHOOL_LOCATION;
+  },
+  save: (data) => {
+    localStorage.setItem('school_settings', JSON.stringify(data));
+    return true;
+  }
+};
+
+const SCHOOL_LOCATION = Settings.get();
 
 // ===== LocalStorage Helpers =====
 const DB = {

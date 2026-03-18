@@ -104,9 +104,9 @@ function addGuru() {
   document.getElementById('add-name').value=''; document.getElementById('add-username').value=''; document.getElementById('add-password').value=''; document.getElementById('add-mapel').value='';
   renderTable();
 }
-function deleteGuru(id) {
+async function deleteGuru(id) {
   if (Schedules.getByGuru(id).length) { toast('Guru masih memiliki jadwal. Hapus jadwalnya dulu.', 'error'); return; }
-  if (!confirmDialog('Hapus guru ini?')) return;
+  if (!await confirmDialog('Hapus guru ini?', 'Hapus Guru')) return;
   const users = DB.getUsers().filter(u => u.id !== id);
   DB.setUsers(users);
   toast('Guru dihapus', 'success');

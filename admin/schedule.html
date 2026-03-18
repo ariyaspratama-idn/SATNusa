@@ -343,8 +343,8 @@ function saveEdit() {
   renderSchedule();
 }
 
-function deleteSchedule(id) {
-  if (!confirmDialog('Hapus jadwal ini?')) return;
+async function deleteSchedule(id) {
+  if (!await confirmDialog('Hapus jadwal ini?', 'Hapus Jadwal')) return;
   Schedules.delete(id);
   toast('Jadwal dihapus', 'success');
   renderSchedule();

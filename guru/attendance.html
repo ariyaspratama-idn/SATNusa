@@ -289,8 +289,8 @@ function saveAndClose() {
   setTimeout(() => window.location.href = 'index.html', 1000);
 }
 
-function closeSession() {
-  if (!confirmDialog('Tutup sesi tanpa menyimpan?')) return;
+async function closeSession() {
+  if (!await confirmDialog('Tutup sesi tanpa menyimpan?', 'Tutup Sesi')) return;
   window.location.href = 'index.html';
 }
 

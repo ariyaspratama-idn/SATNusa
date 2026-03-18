@@ -355,7 +355,36 @@ function updateTopbarDate() {
 function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
-function confirmDialog(msg) { return confirm(msg); }
+function confirmDialog(msg, title = 'Konfirmasi') {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.zIndex = '99999';
+    overlay.style.backdropFilter = 'blur(6px)';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:380px; text-align:center; padding:30px 24px;">
+        <div style="font-size:48px; margin-bottom:16px; line-height:1">❓</div>
+        <div class="modal-title" style="margin-bottom:8px; font-size:20px">${title}</div>
+        <div style="color:var(--text-muted); font-size:14px; margin-bottom:24px; line-height:1.5;">${msg}</div>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button class="btn btn-secondary" id="btn-confirm-no" style="flex:1">Batal</button>
+          <button class="btn btn-primary" id="btn-confirm-yes" style="flex:1">Ya, Lanjutkan</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = (val) => {
+      overlay.style.opacity = '0';
+      overlay.style.transition = '0.2s ease';
+      setTimeout(() => overlay.remove(), 200);
+      resolve(val);
+    };
+
+    overlay.querySelector('#btn-confirm-no').addEventListener('click', () => close(false));
+    overlay.querySelector('#btn-confirm-yes').addEventListener('click', () => close(true));
+  });
+}
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {

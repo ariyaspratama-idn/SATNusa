@@ -347,10 +347,10 @@ function saveEdit() {
   renderTable();
 }
 
-function deleteStudent(id) {
+async function deleteStudent(id) {
   const s = Students.getById(id);
   if (!s) return;
-  if (!confirmDialog(`Hapus murid "${s.name}"? Data absensinya juga akan terpengaruh.`)) return;
+  if (!await confirmDialog(`Hapus murid "${s.name}"? Data absensinya juga akan terpengaruh.`, 'Hapus Murid')) return;
   Students.delete(id);
   toast('Murid berhasil dihapus', 'success');
   renderTable();

@@ -120,11 +120,11 @@ function addClass() {
   renderClasses();
 }
 
-function deleteClass(id) {
+async function deleteClass(id) {
   const cls = Classes.getById(id);
   if (!cls) return;
   if (Students.getByClass(id).length) { toast('Kelas masih memiliki murid. Pindahkan/hapus murid terlebih dahulu.', 'error'); return; }
-  if (!confirmDialog(`Hapus kelas "${cls.name}"?`)) return;
+  if (!await confirmDialog(`Hapus kelas "${cls.name}"?`, 'Hapus Kelas')) return;
   Classes.delete(id);
   toast('Kelas dihapus', 'success');
   renderClasses();

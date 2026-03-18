@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Absensi Sekolah - Login</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="login-page">
+  <div class="login-bg-blur one"></div>
+  <div class="login-bg-blur two"></div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🏫</div>
+      <div class="login-logo-text">Absensi<span>Pro</span></div>
+    </div>
+    <h2 class="login-title">Selamat Datang!</h2>
+    <p class="login-sub">Masuk sesuai peran Anda untuk melanjutkan</p>
+
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="selectRole('admin', this)" id="tab-admin">
+        👑 Admin
+      </button>
+      <button class="role-tab" onclick="selectRole('guru', this)" id="tab-guru">
+        📚 Guru
+      </button>
+      <button class="role-tab" onclick="selectRole('murid', this)" id="tab-murid">
+        🎒 Murid
+      </button>
+    </div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label" id="label-username">Username</label>
+        <div class="input-icon-wrap">
+          <span class="icon">👤</span>
+          <input type="text" id="username" class="form-control" placeholder="Masukkan username" required autocomplete="off">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-icon-wrap">
+          <span class="icon">🔒</span>
+          <input type="password" id="password" class="form-control" placeholder="Masukkan password" required>
+        </div>
+      </div>
+
+      <div id="hint-box" class="form-group" style="background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted);">
+        <strong style="color:var(--primary-light)">💡 Akun Demo:</strong><br>
+        <span id="hint-text">Username: <code>admin</code> | Password: <code>admin123</code></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login">
+        🚀 Masuk
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  let currentRole = 'admin';
+
+  const hints = {
+    admin: 'Username: <code>admin</code> | Password: <code>admin123</code>',
+    guru: 'Username: <code>eko.prasetyo</code> | Password: <code>guru123</code>',
+    murid: 'Username (NIM): <code>2024001</code> | Password: <code>2024001</code>',
+  };
+  const labels = { admin: 'Username', guru: 'Username', murid: 'NIM (Username)' };
+
+  function selectRole(role, el) {
+    currentRole = role;
+    document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('hint-text').innerHTML = hints[role];
+    document.getElementById('label-username').textContent = labels[role];
+    document.getElementById('username').placeholder = role === 'murid' ? 'Masukkan NIM' : 'Masukkan username';
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Memproses...';
+
+    setTimeout(() => {
+      const user = Auth.login(username, password, currentRole);
+      if (!user) {
+        toast('Username atau password salah!', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Masuk';
+        return;
+      }
+      toast('Berhasil masuk! Mengalihkan...', 'success');
+      setTimeout(() => {
+        if (user.role === 'admin') window.location.href = 'admin/index.html';
+        else if (user.role === 'guru') window.location.href = 'guru/index.html';
+        else window.location.href = 'murid/index.html';
+      }, 800);
+    }, 500);
+  }
+
+  // If already logged in, redirect
+  document.addEventListener('DOMContentLoaded', () => {
+    const user = Auth.current();
+    if (user) {
+      if (user.role === 'admin') window.location.href = 'admin/index.html';
+      else if (user.role === 'guru') window.location.href = 'guru/index.html';
+      else window.location.href = 'murid/index.html';
+    }
+  });
+</script>
+</body>
+</html>

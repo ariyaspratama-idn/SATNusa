@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensi Guru - AbsensiPro Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Admin</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👤</span> Manajemen Guru</a>
+      <a href="guru-attendance.html" class="nav-item active"><span class="nav-icon">📸</span> Absensi Guru</a>
+      <a href="guru-permits.html" class="nav-item"><span class="nav-icon">📄</span> Izin Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📸 Absensi Guru</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Rekap Absensi Guru</h1>
+        <p class="page-sub">Monitor kehadiran selfie harian seluruh guru</p>
+      </div>
+
+      <!-- Today Stats -->
+      <div class="stats-grid mb-4" id="today-stats"></div>
+
+      <!-- Today's guru checkins -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="card-title">📅 Kehadiran Hari Ini – <span id="today-label"></span></div>
+          <div style="font-size:13px;color:var(--text-muted)"><span id="date-label"></span></div>
+        </div>
+        <div id="today-checkins"></div>
+      </div>
+
+      <!-- Filter & History -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Riwayat Absensi Guru</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="date" id="filter-date" class="form-control" style="width:auto" onchange="renderHistory()">
+            <select id="filter-guru" class="form-control" style="width:auto" onchange="renderHistory()">
+              <option value="">Semua Guru</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Guru</th><th>Jam</th><th>Foto Selfie</th><th>Lokasi</th><th>Status</th></tr></thead>
+            <tbody id="att-history"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detail selfie -->
+<div id="modal-selfie" class="modal-overlay hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">📸 Detail Selfie Absensi</div>
+      <button class="modal-close" onclick="closeModal('modal-selfie')">×</button>
+    </div>
+    <div class="modal-body" id="selfie-detail-body"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modal-selfie')">Tutup</button></div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentUser;
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = Auth.require(ROLES.ADMIN);
+  if (!currentUser) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(currentUser);
+
+  const today = DateUtils.today();
+  document.getElementById('filter-date').value = today;
+  document.getElementById('today-label').textContent = DateUtils.format(today);
+  document.getElementById('date-label').textContent = new Date().toLocaleDateString('id-ID', { weekday:'long' });
+
+  // Populate guru filter
+  const gurus = DB.getUsers().filter(u => u.role === ROLES.GURU);
+  document.getElementById('filter-guru').innerHTML = '<option value="">Semua Guru</option>' +
+    gurus.map(g => `<option value="${g.id}">${g.name.split(',')[0]}</option>`).join('');
+
+  renderTodayStats(gurus, today);
+  renderTodayCheckins(gurus, today);
+  renderHistory();
+});
+
+function renderTodayStats(gurus, today) {
+  const todayAtts = GuruAttendances.getByDate(today);
+  const hadirIds = new Set(todayAtts.map(a => a.guruId));
+  const izinIds = new Set(GuruPermits.getAll().filter(p => p.status === 'approved' && p.dateStart <= today && p.dateEnd >= today).map(p => p.guruId));
+  const alphaCount = gurus.filter(g => !hadirIds.has(g.id) && !izinIds.has(g.id)).length;
+
+  document.getElementById('today-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">${hadirIds.size}</div><div class="stat-label">Hadir Hari Ini</div></div></div>
+    <div class="stat-card"><div class="stat-icon yellow">📄</div><div><div class="stat-value">${izinIds.size}</div><div class="stat-label">Izin Hari Ini</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">❌</div><div><div class="stat-value">${alphaCount}</div><div class="stat-label">Belum Absen</div></div></div>
+    <div class="stat-card"><div class="stat-icon indigo">👨‍🏫</div><div><div class="stat-value">${gurus.length}</div><div class="stat-label">Total Guru</div></div></div>
+  `;
+}
+
+function renderTodayCheckins(gurus, today) {
+  const todayAtts = GuruAttendances.getByDate(today);
+  const attMap = Object.fromEntries(todayAtts.map(a => [a.guruId, a]));
+  const izins = GuruPermits.getAll().filter(p => p.status === 'approved' && p.dateStart <= today && p.dateEnd >= today);
+  const izinSet = new Set(izins.map(p => p.guruId));
+  const container = document.getElementById('today-checkins');
+
+  container.innerHTML = gurus.map(g => {
+    const att = attMap[g.id];
+    const isIzin = !att && izinSet.has(g.id);
+    const statusClass = att ? 'ok' : isIzin ? 'izin' : 'miss';
+    const statusHtml = att
+      ? `<span class="badge badge-success">✅ Hadir • ${att.time}</span>`
+      : isIzin
+        ? `<span class="badge badge-warning">📄 Izin Disetujui</span>`
+        : `<span class="badge badge-danger">❌ Belum Absen</span>`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)">
+      ${att?.photo ? `<img src="${att.photo}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--success)" onclick="showSelfieDetail('${att.id}')" title="Lihat selfie">` : `<div class="avatar" style="width:44px;height:44px;background:var(--guru-grad);color:white">${Students.initials(g.name)}</div>`}
+      <div style="flex:1">
+        <div style="font-weight:700">${g.name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${(g.mata_pelajaran||[]).join(', ')}</div>
+      </div>
+      <div>${statusHtml}</div>
+      ${att ? `<button class="btn btn-sm btn-secondary" onclick="showSelfieDetail('${att.id}')">📸</button>` : ''}
+    </div>`;
+  }).join('') || '<div class="empty-state" style="padding:20px"><div class="icon">👨‍🏫</div><p>Belum ada data guru</p></div>';
+}
+
+function renderHistory() {
+  const dateFilter = document.getElementById('filter-date').value;
+  const guruFilter = document.getElementById('filter-guru').value;
+  let atts = GuruAttendances.getAll();
+  if (dateFilter) atts = atts.filter(a => a.date === dateFilter);
+  if (guruFilter) atts = atts.filter(a => a.guruId === guruFilter);
+  atts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const tbody = document.getElementById('att-history');
+  tbody.innerHTML = atts.length ? atts.map(a => `<tr>
+    <td>${DateUtils.format(a.date)}</td>
+    <td><strong>${a.guruName}</strong></td>
+    <td style="font-weight:600">${a.time}</td>
+    <td><img src="${a.photo||''}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="showSelfieDetail('${a.id}')" title="Lihat selfie"></td>
+    <td style="font-size:12px">${a.lat ? `📍 ${a.distance}m dari sekolah` : '<span class="text-muted">-</span>'}</td>
+    <td><span class="badge badge-success">✅ Hadir</span></td>
+  </tr>`) .join('') : '<tr><td colspan="6" class="text-center text-muted" style="padding:24px">Tidak ada data</td></tr>';
+}
+
+function showSelfieDetail(attId) {
+  const a = GuruAttendances.getAll().find(x => x.id === attId);
+  if (!a) return;
+  document.getElementById('selfie-detail-body').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <img src="${a.photo}" style="width:100%;max-width:300px;border-radius:12px;object-fit:cover;border:3px solid var(--success)">
+    </div>
+    <div class="grid-2">
+      <div><div class="form-label">Guru</div><div style="font-weight:700">${a.guruName}</div></div>
+      <div><div class="form-label">Tanggal</div><div>${DateUtils.format(a.date)}</div></div>
+      <div><div class="form-label">Jam Check-in</div><div style="font-weight:700;font-size:18px">${a.time}</div></div>
+      <div><div class="form-label">Status</div><span class="badge badge-success">✅ Hadir</span></div>
+    </div>
+    ${a.lat ? `<hr class="divider"><div><div class="form-label">Lokasi</div>
+      <div style="font-size:13px">📍 ${a.distance}m dari sekolah</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Koordinat: ${a.lat?.toFixed(5)}, ${a.lng?.toFixed(5)}</div>
+    </div>` : ''}
+  `;
+  openModal('modal-selfie');
+}
+</script>
+</body>
+</html>

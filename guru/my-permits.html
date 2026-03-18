@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Izin Saya (Guru) - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-guru">📚</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Guru</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="selfie-attend.html" class="nav-item"><span class="nav-icon">📸</span> Absensi Selfie</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Absensi Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Saya</a>
+      <a href="my-permits.html" class="nav-item active"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+      <a href="permits.html" class="nav-item"><span class="nav-icon">🗂️</span> Izin Murid</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📄 Pengajuan Izin Saya</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <h1 class="page-title">Pengajuan Izin Guru</h1>
+          <p class="page-sub">Ajukan izin tidak hadir dan pantau status persetujuan Admin</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('modal-add')">➕ Ajukan Izin Baru</button>
+      </div>
+
+      <!-- Info banner -->
+      <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px">
+        ℹ️ Pengajuan izin Anda akan divalidasi oleh <strong>Admin</strong>. Anda akan mendapat notifikasi status melalui halaman ini.
+      </div>
+
+      <!-- Filter tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="setFilter('all',this)" id="tab-all">📋 Semua</button>
+        <button class="btn btn-outline btn-sm" onclick="setFilter('pending',this)">⏳ Pending (<span id="cnt-pending">0</span>)</button>
+        <button class="btn btn-outline btn-sm" onclick="setFilter('approved',this)">✅ Disetujui</button>
+        <button class="btn btn-outline btn-sm" onclick="setFilter('rejected',this)">❌ Ditolak</button>
+      </div>
+
+      <div id="permits-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ajukan Izin -->
+<div id="modal-add" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📄 Ajukan Izin Tidak Hadir</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Jenis Izin *</label>
+        <select id="add-type" class="form-control">
+          <option value="Sakit">Sakit</option>
+          <option value="Izin">Izin (keperluan pribadi)</option>
+          <option value="Keluarga">Urusan Keluarga</option>
+          <option value="Dinas">Dinas Luar</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Tanggal Mulai *</label>
+          <input type="date" id="add-start" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tanggal Selesai *</label>
+          <input type="date" id="add-end" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Keterangan / Alasan *</label>
+        <textarea id="add-reason" class="form-control" rows="3" placeholder="Jelaskan alasan izin Anda secara singkat..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lampiran Bukti (opsional)</label>
+        <div class="file-upload-area" onclick="document.getElementById('add-attachment').click()">
+          <input type="file" id="add-attachment" accept="image/*" onchange="previewAttachment(this)">
+          <div id="preview-attachment">
+            <div style="font-size:32px">📎</div>
+            <div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk upload bukti (foto/surat dokter)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add')">Batal</button>
+      <button class="btn btn-primary" onclick="submitPermit()">📤 Kirim Pengajuan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentFilter = 'all';
+let currentUser;
+let attachmentData = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = Auth.require(ROLES.GURU);
+  if (!currentUser) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(currentUser);
+  const today = DateUtils.today();
+  document.getElementById('add-start').value = today;
+  document.getElementById('add-end').value = today;
+  renderPermits();
+});
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('[onclick^="setFilter"]').forEach(b => { b.className = 'btn btn-outline btn-sm'; });
+  btn.className = 'btn btn-primary btn-sm';
+  renderPermits();
+}
+
+function renderPermits() {
+  if (!currentUser) return;
+  let permits = GuruPermits.getByGuru(currentUser.id);
+  const pendingCount = permits.filter(p => p.status === 'pending').length;
+  document.getElementById('cnt-pending').textContent = pendingCount;
+
+  if (currentFilter !== 'all') permits = permits.filter(p => p.status === currentFilter);
+  permits = permits.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const container = document.getElementById('permits-list');
+  if (!permits.length) {
+    container.innerHTML = `<div class="empty-state card"><div class="icon">📄</div>
+      <p>Belum ada pengajuan izin</p>
+      <a href="#" onclick="openModal('modal-add');return false" class="btn btn-primary" style="margin-top:16px">Ajukan Sekarang</a>
+    </div>`;
+    return;
+  }
+  const statusMap = {
+    pending: { badge: 'badge-warning', label: '⏳ Menunggu Admin', color: 'var(--warning)' },
+    approved: { badge: 'badge-success', label: '✅ Disetujui', color: 'var(--success)' },
+    rejected: { badge: 'badge-danger', label: '❌ Ditolak', color: 'var(--danger)' }
+  };
+  const typeIcon = { Sakit:'🏥', Izin:'📄', Keluarga:'👨‍👩‍👧', Dinas:'🗂️', Lainnya:'📝' };
+  container.innerHTML = permits.map(p => {
+    const st = statusMap[p.status] || statusMap.pending;
+    return `<div class="permit-card" style="border-left:4px solid ${st.color}">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+            <span style="font-size:18px">${typeIcon[p.type]||'📄'}</span>
+            <span style="font-weight:700;font-size:15px">${p.type}</span>
+            <span class="badge ${st.badge}">${st.label}</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">
+            📅 ${DateUtils.format(p.dateStart)} – ${DateUtils.format(p.dateEnd)}
+          </div>
+          <div style="font-size:13px;margin-bottom:4px">${p.reason || '-'}</div>
+          ${p.status !== 'pending' ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:8px;background:var(--bg);border-radius:6px">
+            Diproses oleh: <strong>${p.reviewedBy||'Admin'}</strong>
+            ${p.rejectReason ? `<br>Alasan: <strong style="color:var(--danger)">${p.rejectReason}</strong>` : ''}
+          </div>` : `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Menunggu persetujuan Admin...</div>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <div style="font-size:11px;color:var(--text-muted)">${DateUtils.format(p.createdAt)}</div>
+          ${p.attachment ? `<img src="${p.attachment}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function previewAttachment(input) {
+  const file = input.files[0];
+  if (!file) return;
+  attachmentData = await fileToBase64(file);
+  document.getElementById('preview-attachment').innerHTML = `<div class="upload-preview"><img src="${attachmentData}" alt="preview"></div>`;
+}
+
+function submitPermit() {
+  const type = document.getElementById('add-type').value;
+  const dateStart = document.getElementById('add-start').value;
+  const dateEnd = document.getElementById('add-end').value;
+  const reason = document.getElementById('add-reason').value.trim();
+  if (!reason || !dateStart || !dateEnd) { toast('Isi semua field yang wajib', 'error'); return; }
+  if (dateStart > dateEnd) { toast('Tanggal mulai harus sebelum selesai', 'error'); return; }
+  GuruPermits.add({ guruId: currentUser.id, guruName: currentUser.name, type, dateStart, dateEnd, reason, attachment: attachmentData || '' });
+  toast('Pengajuan izin berhasil dikirim ke Admin!', 'success');
+  closeModal('modal-add');
+  document.getElementById('add-reason').value = '';
+  document.getElementById('preview-attachment').innerHTML = '<div style="font-size:32px">📎</div><div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk upload bukti</div>';
+  attachmentData = null;
+  setFilter('all', document.getElementById('tab-all'));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Murid - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div>
+        <div class="sidebar-brand-text">AbsensiPro</div>
+        <div class="sidebar-brand-role">Panel Admin</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item active"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">👨‍🎓 Data Murid</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <h1 class="page-title">Data Murid</h1>
+          <p class="page-sub">Kelola dan daftarkan murid, generate QR Code</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('modal-add')">➕ Daftar Murid Baru</button>
+      </div>
+
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="search" class="form-control" style="max-width:240px" placeholder="🔍 Cari nama / NIM...">
+          <select id="filter-class" class="form-control" style="max-width:200px">
+            <option value="">Semua Kelas</option>
+          </select>
+          <span id="count-label" class="text-muted"></span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Murid</th><th>NIM</th><th>Kelas</th><th>QR Code</th><th>Kehadiran</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="students-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tambah Murid -->
+<div id="modal-add" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Daftarkan Murid Baru</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">NIM *</label>
+          <input type="text" id="add-nim" class="form-control" placeholder="contoh: 2024005">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kelas *</label>
+          <select id="add-class" class="form-control"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap *</label>
+        <input type="text" id="add-name" class="form-control" placeholder="Nama sesuai dokumen">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Foto Murid</label>
+        <div class="file-upload-area" onclick="document.getElementById('add-photo').click()">
+          <input type="file" id="add-photo" accept="image/*" onchange="previewPhoto(this,'preview-add')">
+          <div id="preview-add">
+            <div style="font-size:32px">📷</div>
+            <div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk upload foto murid</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add')">Batal</button>
+      <button class="btn btn-primary" onclick="addStudent()">💾 Simpan & Generate QR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal QR Code -->
+<div id="modal-qr" class="modal-overlay hidden">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">📱 QR Code Murid</div>
+      <button class="modal-close" onclick="closeModal('modal-qr')">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="qr-display" class="qr-card" style="margin:16px auto;">
+        <div class="qr-card-stripe"></div>
+        <div class="qr-card-header">
+          <div class="qr-card-logo-left">🏫</div>
+          <div class="qr-card-header-text">
+            <div class="qr-card-title">KARTU TANDA PELAJAR</div>
+            <div class="qr-card-subtitle">SMK ABSENSIPRO</div>
+          </div>
+          <div class="qr-card-logo-right">📚</div>
+        </div>
+        <div class="qr-card-body">
+          <div class="qr-card-details">
+            <div class="qr-card-row"><div class="qr-card-label">Nama</div><div>:</div><div id="qr-name" class="qr-card-value" style="margin-left:8px"></div></div>
+            <div class="qr-card-row"><div class="qr-card-label">NIM</div><div>:</div><div id="qr-nim" class="qr-card-value" style="margin-left:8px"></div></div>
+            <div class="qr-card-row"><div class="qr-card-label">Kelas</div><div>:</div><div id="qr-class" class="qr-card-value" style="margin-left:8px"></div></div>
+            
+            <div class="qr-card-qr-section">
+              <div id="qrcode" class="qrcode-wrap"></div>
+              <div class="qr-card-bottom-text">ABSENSI PRO</div>
+            </div>
+          </div>
+          <div class="qr-card-photo-col">
+            <div id="qr-photo-wrap"></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="downloadQR()">⬇️ Download QR</button>
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:12px">Password login murid = NIM</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit -->
+<div id="modal-edit" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Edit Data Murid</div>
+      <button class="modal-close" onclick="closeModal('modal-edit')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">NIM</label>
+          <input type="text" id="edit-nim" class="form-control" readonly style="opacity:.6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kelas</label>
+          <select id="edit-class" class="form-control"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" id="edit-name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Foto</label>
+        <div class="file-upload-area" onclick="document.getElementById('edit-photo').click()">
+          <input type="file" id="edit-photo" accept="image/*" onchange="previewPhoto(this,'preview-edit')">
+          <div id="preview-edit">
+            <div style="font-size:32px">📷</div>
+            <div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk ganti foto</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit')">Batal</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentQRStudent = null;
+let editPhotoData = null;
+let addPhotoData = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  populateClassFilters();
+  renderTable();
+  document.getElementById('search').addEventListener('input', renderTable);
+  document.getElementById('filter-class').addEventListener('change', renderTable);
+});
+
+function populateClassFilters() {
+  const classes = Classes.getAll();
+  const opts = classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('filter-class').innerHTML = '<option value="">Semua Kelas</option>' + opts;
+  document.getElementById('add-class').innerHTML = '<option value="">-- Pilih Kelas --</option>' + opts;
+  document.getElementById('edit-class').innerHTML = '<option value="">-- Pilih Kelas --</option>' + opts;
+}
+
+function renderTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filterClass = document.getElementById('filter-class').value;
+  let students = Students.getAll();
+  if (q) students = students.filter(s => s.name.toLowerCase().includes(q) || s.nim.includes(q));
+  if (filterClass) students = students.filter(s => s.classId === filterClass);
+  document.getElementById('count-label').textContent = `${students.length} murid ditemukan`;
+
+  const tbody = document.getElementById('students-table');
+  tbody.innerHTML = students.length ? students.map(s => {
+    const cls = Classes.getById(s.classId);
+    const summary = Attendances.summary(s.id);
+    const pct = summary.total ? Math.round((summary.hadir / summary.total) * 100) : 0;
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${s.photo ? `<img src="${s.photo}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">` : `<div class="avatar">${Students.initials(s.name)}</div>`}
+          <div><div style="font-weight:600">${s.name}</div><div style="font-size:12px;color:var(--text-muted)">${DateUtils.format(s.createdAt)}</div></div>
+        </div>
+      </td>
+      <td><code style="background:var(--bg);padding:2px 8px;border-radius:4px">${s.nim}</code></td>
+      <td><span class="badge badge-primary">${cls?.name || '-'}</span></td>
+      <td>
+        <button class="btn btn-sm btn-info" onclick="showQR('${s.id}')">📱 Tampilkan QR</button>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:6px;background:var(--bg);border-radius:99px;min-width:60px">
+            <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">${pct}%</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-secondary" onclick="openEdit('${s.id}')">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteStudent('${s.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Belum ada murid yang terdaftar</p></div></td></tr>';
+}
+
+async function previewPhoto(input, previewId) {
+  const file = input.files[0];
+  if (!file) return;
+  const data = await fileToBase64(file);
+  if (previewId === 'preview-add') addPhotoData = data;
+  else { editPhotoData = data; }
+  document.getElementById(previewId).innerHTML = `<div class="upload-preview"><img src="${data}" alt="preview"></div>`;
+}
+
+function addStudent() {
+  const nim = document.getElementById('add-nim').value.trim();
+  const name = document.getElementById('add-name').value.trim();
+  const classId = document.getElementById('add-class').value;
+  if (!nim || !name || !classId) { toast('Isi semua field yang wajib', 'error'); return; }
+  if (Students.getByNim(nim)) { toast('NIM sudah terdaftar!', 'error'); return; }
+  const s = Students.add({ nim, name, classId, photo: addPhotoData || '' });
+  toast('Murid berhasil didaftarkan!', 'success');
+  closeModal('modal-add');
+  document.getElementById('add-nim').value = '';
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-class').value = '';
+  document.getElementById('preview-add').innerHTML = '<div style="font-size:32px">📷</div><div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk upload foto murid</div>';
+  addPhotoData = null;
+  renderTable();
+  setTimeout(() => showQR(s.id), 300);
+}
+
+function showQR(studentId) {
+  const s = Students.getById(studentId);
+  if (!s) return;
+  currentQRStudent = s;
+  const cls = Classes.getById(s.classId);
+  document.getElementById('qr-name').textContent = s.name;
+  document.getElementById('qr-nim').textContent = s.nim;
+  document.getElementById('qr-class').textContent = cls ? cls.name : '-';
+  const photoWrap = document.getElementById('qr-photo-wrap');
+  photoWrap.innerHTML = s.photo ? `<img src="${s.photo}" class="qr-card-img" alt="">` : `<div class="qr-card-img">FOTO<br>3x4</div>`;
+  document.getElementById('qrcode').innerHTML = '';
+  new QRCode(document.getElementById('qrcode'), {
+    text: JSON.stringify({ id: s.id, nim: s.nim, name: s.name }),
+    width: 64, height: 64,
+    colorDark: '#0F172A', colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+  openModal('modal-qr');
+}
+
+function downloadQR() {
+  const card = document.getElementById('qr-display');
+  const canvas = card.querySelector('canvas');
+  if (!canvas) { toast('QR belum siap', 'warning'); return; }
+  const link = document.createElement('a');
+  link.download = `QR_${currentQRStudent?.nim || 'murid'}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+function openEdit(id) {
+  const s = Students.getById(id);
+  if (!s) return;
+  editPhotoData = s.photo || null;
+  document.getElementById('edit-id').value = s.id;
+  document.getElementById('edit-nim').value = s.nim;
+  document.getElementById('edit-name').value = s.name;
+  document.getElementById('edit-class').value = s.classId;
+  document.getElementById('preview-edit').innerHTML = s.photo ? `<div class="upload-preview"><img src="${s.photo}" alt="foto"></div>` : '<div style="font-size:32px">📷</div><div style="color:var(--text-muted);font-size:13px;margin-top:8px">Klik untuk ganti foto</div>';
+  openModal('modal-edit');
+}
+
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const name = document.getElementById('edit-name').value.trim();
+  const classId = document.getElementById('edit-class').value;
+  if (!name || !classId) { toast('Isi semua field', 'error'); return; }
+  Students.update(id, { name, classId, photo: editPhotoData || '' });
+  const users = DB.getUsers();
+  const uIdx = users.findIndex(u => u.studentId === id);
+  if (uIdx !== -1) { users[uIdx].name = name; DB.setUsers(users); }
+  toast('Data berhasil diperbarui!', 'success');
+  closeModal('modal-edit');
+  renderTable();
+}
+
+function deleteStudent(id) {
+  const s = Students.getById(id);
+  if (!s) return;
+  if (!confirmDialog(`Hapus murid "${s.name}"? Data absensinya juga akan terpengaruh.`)) return;
+  Students.delete(id);
+  toast('Murid berhasil dihapus', 'success');
+  renderTable();
+}
+</script>
+</body>
+</html>

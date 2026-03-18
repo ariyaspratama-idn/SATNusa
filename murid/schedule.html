@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jadwal Pelajaran - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-murid">🎒</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Portal Murid</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">🏠</span> Beranda</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">📊</span> Riwayat Absensi</a>
+      <a href="schedule.html" class="nav-item active"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="permit.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📅 Jadwal Pelajaran</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Jadwal Pelajaran Saya</h1>
+        <p class="page-sub" id="class-info">Jadwal mingguan kelas Anda</p>
+      </div>
+      <div class="schedule-grid" id="schedule-grid"></div>
+    </div>
+  </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.MURID);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  const student = Students.getByNim(user.nim);
+  if (!student) return;
+  const cls = Classes.getById(student.classId);
+  if (cls) document.getElementById('class-info').textContent = `Kelas ${cls.name}`;
+  renderSchedule(student.classId);
+});
+function renderSchedule(classId) {
+  const today = DateUtils.currentDay();
+  const days = [1,2,3,4,5,6];
+  const dayNames = {1:'Senin',2:'Selasa',3:'Rabu',4:'Kamis',5:'Jumat',6:'Sabtu'};
+  const dayEmoji = {1:'📅',2:'📅',3:'📅',4:'📅',5:'🕌',6:'📝'};
+  const scheds = Schedules.getByClass(classId);
+  const users = DB.getUsers();
+  document.getElementById('schedule-grid').innerHTML = days.map(day => {
+    const dayScheds = scheds.filter(s => s.day === day).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+    const isToday = today === day;
+    return `<div class="schedule-day-card">
+      <div class="schedule-day-header ${isToday?'today':''}">
+        ${dayEmoji[day]} ${dayNames[day]}
+        ${isToday?'<span class="badge badge-primary" style="margin-left:auto">Hari Ini</span>':''}
+      </div>
+      ${dayScheds.length ? dayScheds.map(s => {
+        const guru = users.find(u => u.id === s.guruId);
+        return `<div class="schedule-slot">
+          <div class="schedule-time">
+            <div style="font-weight:800;color:var(--text);font-size:14px">${s.jamMulai}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${s.jamSelesai}</div>
+          </div>
+          <div class="schedule-mapel">
+            <div class="schedule-mapel-name">${s.mapel}</div>
+            <div class="schedule-mapel-class">👤 ${guru?.name?.split(',')[0]||'-'}</div>
+            <div style="font-size:11px;color:var(--text-muted)">🚪 ${s.room||'-'}</div>
+          </div>
+        </div>`;
+      }).join('') : '<div style="padding:16px;color:var(--text-muted);font-size:13px;text-align:center">Libur</div>'}
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

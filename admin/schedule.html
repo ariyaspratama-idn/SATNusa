@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jadwal Pelajaran - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Admin</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item active"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📅 Jadwal Pelajaran</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <h1 class="page-title">Jadwal Pelajaran</h1>
+          <p class="page-sub">Atur jadwal mata pelajaran per kelas dan jam pengajaran</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('modal-add')">➕ Tambah Jadwal</button>
+      </div>
+
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <div>
+            <label class="form-label" style="margin-bottom:4px">Filter Kelas</label>
+            <select id="filter-class" class="form-control" style="min-width:180px" onchange="renderSchedule()">
+              <option value="">Semua Kelas</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="margin-bottom:4px">Filter Guru</label>
+            <select id="filter-guru" class="form-control" style="min-width:180px" onchange="renderSchedule()">
+              <option value="">Semua Guru</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:20px">
+            <button class="btn btn-sm btn-secondary" onclick="setView('week')" id="btn-week">📅 Mingguan</button>
+            <button class="btn btn-sm btn-outline" onclick="setView('list')" id="btn-list">📋 List</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="schedule-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tambah Jadwal -->
+<div id="modal-add" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Tambah Jadwal Pelajaran</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Kelas *</label>
+          <select id="add-class" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Guru *</label>
+          <select id="add-guru" class="form-control"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mata Pelajaran *</label>
+        <input type="text" id="add-mapel" class="form-control" placeholder="contoh: Matematika" list="mapel-list">
+        <datalist id="mapel-list">
+          <option value="Matematika"><option value="Fisika"><option value="Kimia"><option value="Biologi">
+          <option value="Bahasa Indonesia"><option value="Bahasa Inggris"><option value="PKN">
+          <option value="Sejarah"><option value="Pemrograman Web"><option value="Basis Data">
+          <option value="Jaringan Komputer"><option value="Desain Grafis"><option value="Olahraga">
+          <option value="Seni Budaya"><option value="Agama">
+        </datalist>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Hari *</label>
+          <select id="add-day" class="form-control">
+            <option value="1">Senin</option><option value="2">Selasa</option>
+            <option value="3">Rabu</option><option value="4">Kamis</option>
+            <option value="5">Jumat</option><option value="6">Sabtu</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ruangan</label>
+          <input type="text" id="add-room" class="form-control" placeholder="contoh: R.01">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Jam Mulai *</label>
+          <input type="time" id="add-start" class="form-control" value="07:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jam Selesai *</label>
+          <input type="time" id="add-end" class="form-control" value="08:30">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add')">Batal</button>
+      <button class="btn btn-primary" onclick="addSchedule()">💾 Simpan Jadwal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Jadwal -->
+<div id="modal-edit" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Edit Jadwal</div>
+      <button class="modal-close" onclick="closeModal('modal-edit')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Kelas</label>
+          <select id="edit-class" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Guru</label>
+          <select id="edit-guru" class="form-control"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mata Pelajaran</label>
+        <input type="text" id="edit-mapel" class="form-control" list="mapel-list">
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Hari</label>
+          <select id="edit-day" class="form-control">
+            <option value="1">Senin</option><option value="2">Selasa</option>
+            <option value="3">Rabu</option><option value="4">Kamis</option>
+            <option value="5">Jumat</option><option value="6">Sabtu</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ruangan</label>
+          <input type="text" id="edit-room" class="form-control">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Jam Mulai</label>
+          <input type="time" id="edit-start" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jam Selesai</label>
+          <input type="time" id="edit-end" class="form-control">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit')">Batal</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentView = 'week';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  populateFilters();
+  renderSchedule();
+});
+
+function populateFilters() {
+  const classes = Classes.getAll();
+  const gurus = DB.getUsers().filter(u => u.role === ROLES.GURU);
+  const clsOpts = classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  const guruOpts = gurus.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  ['filter-class','add-class','edit-class'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = (id.startsWith('filter') ? '<option value="">Semua Kelas</option>' : '<option value="">-- Pilih Kelas --</option>') + clsOpts;
+  });
+  ['filter-guru','add-guru','edit-guru'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = (id.startsWith('filter') ? '<option value="">Semua Guru</option>' : '<option value="">-- Pilih Guru --</option>') + guruOpts;
+  });
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('btn-week').className = v==='week' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-outline';
+  document.getElementById('btn-list').className = v==='list' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-outline';
+  renderSchedule();
+}
+
+function renderSchedule() {
+  const filterClass = document.getElementById('filter-class').value;
+  const filterGuru = document.getElementById('filter-guru').value;
+  let scheds = Schedules.getAll();
+  if (filterClass) scheds = scheds.filter(s => s.classId === filterClass);
+  if (filterGuru) scheds = scheds.filter(s => s.guruId === filterGuru);
+  
+  const container = document.getElementById('schedule-container');
+  if (currentView === 'week') container.innerHTML = renderWeekView(scheds);
+  else container.innerHTML = renderListView(scheds);
+}
+
+function renderWeekView(scheds) {
+  const today = DateUtils.currentDay();
+  const days = [1,2,3,4,5,6];
+  const dayNames = {1:'Senin',2:'Selasa',3:'Rabu',4:'Kamis',5:'Jumat',6:'Sabtu'};
+  const emojis = {1:'📅',2:'📅',3:'📅',4:'📅',5:'🕌',6:'📝'};
+
+  return `<div class="schedule-grid">` + days.map(day => {
+    const dayScheds = scheds.filter(s => s.day === day).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+    return `<div class="schedule-day-card">
+      <div class="schedule-day-header ${today===day?'today':''}">${emojis[day]} ${dayNames[day]} ${today===day?'<span class="badge badge-primary" style="margin-left:auto">Hari Ini</span>':''}
+      </div>
+      ${dayScheds.length ? dayScheds.map(s => renderSlot(s)).join('') :
+        '<div style="padding:16px;color:var(--text-muted);font-size:13px;text-align:center">Tidak ada jadwal</div>'}
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function renderSlot(s) {
+  const guru = DB.getUsers().find(u => u.id === s.guruId);
+  const cls = Classes.getById(s.classId);
+  const colorMap = {'Matematika':'indigo','Fisika':'cyan','Pemrograman Web':'green','Basis Data':'yellow','Bahasa Indonesia':'purple','PKN':'red'};
+  const color = colorMap[s.mapel] || 'info';
+  return `<div class="schedule-slot">
+    <div class="schedule-time">
+      <div style="font-weight:700;color:var(--text);font-size:13px">${s.jamMulai}</div>
+      <div style="font-size:11px">${s.jamSelesai}</div>
+    </div>
+    <div class="schedule-mapel" style="flex:1">
+      <div class="schedule-mapel-name">${s.mapel}</div>
+      <div class="schedule-mapel-class">${cls?.name || '-'} · ${s.room || '-'}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">👤 ${guru?.name || '-'}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;padding:10px 10px 10px 0">
+      <button class="btn btn-sm btn-secondary" onclick="openEdit('${s.id}')">✏️</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${s.id}')">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function renderListView(scheds) {
+  const sorted = [...scheds].sort((a,b) => a.day - b.day || a.jamMulai.localeCompare(b.jamMulai));
+  const dayNames = {1:'Senin',2:'Selasa',3:'Rabu',4:'Kamis',5:'Jumat',6:'Sabtu'};
+  return `<div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Hari</th><th>Jam</th><th>Mata Pelajaran</th><th>Kelas</th><th>Guru</th><th>Ruangan</th><th>Aksi</th></tr></thead>
+        <tbody>${sorted.length ? sorted.map(s => {
+          const guru = DB.getUsers().find(u => u.id === s.guruId);
+          const cls = Classes.getById(s.classId);
+          return `<tr>
+            <td><span class="badge badge-info">${dayNames[s.day]}</span></td>
+            <td style="font-size:13px;font-weight:600">${s.jamMulai} – ${s.jamSelesai}</td>
+            <td><strong>${s.mapel}</strong></td>
+            <td><span class="badge badge-primary">${cls?.name||'-'}</span></td>
+            <td>${guru?.name||'-'}</td>
+            <td>${s.room||'-'}</td>
+            <td><div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-secondary" onclick="openEdit('${s.id}')">✏️</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${s.id}')">🗑️</button>
+            </div></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="7" class="text-center text-muted" style="padding:30px">Belum ada jadwal</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function addSchedule() {
+  const classId = document.getElementById('add-class').value;
+  const guruId = document.getElementById('add-guru').value;
+  const mapel = document.getElementById('add-mapel').value.trim();
+  const day = parseInt(document.getElementById('add-day').value);
+  const jamMulai = document.getElementById('add-start').value;
+  const jamSelesai = document.getElementById('add-end').value;
+  const room = document.getElementById('add-room').value.trim();
+  if (!classId || !guruId || !mapel || !jamMulai || !jamSelesai) { toast('Isi semua field wajib', 'error'); return; }
+  if (jamMulai >= jamSelesai) { toast('Jam mulai harus sebelum jam selesai', 'error'); return; }
+  Schedules.add({ classId, guruId, mapel, day, jamMulai, jamSelesai, room });
+  toast('Jadwal berhasil ditambahkan!', 'success');
+  closeModal('modal-add');
+  renderSchedule();
+}
+
+function openEdit(id) {
+  const s = Schedules.getAll().find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('edit-id').value = s.id;
+  document.getElementById('edit-class').value = s.classId;
+  document.getElementById('edit-guru').value = s.guruId;
+  document.getElementById('edit-mapel').value = s.mapel;
+  document.getElementById('edit-day').value = s.day;
+  document.getElementById('edit-room').value = s.room || '';
+  document.getElementById('edit-start').value = s.jamMulai;
+  document.getElementById('edit-end').value = s.jamSelesai;
+  openModal('modal-edit');
+}
+
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const classId = document.getElementById('edit-class').value;
+  const guruId = document.getElementById('edit-guru').value;
+  const mapel = document.getElementById('edit-mapel').value.trim();
+  const day = parseInt(document.getElementById('edit-day').value);
+  const jamMulai = document.getElementById('edit-start').value;
+  const jamSelesai = document.getElementById('edit-end').value;
+  const room = document.getElementById('edit-room').value.trim();
+  if (!classId || !guruId || !mapel) { toast('Isi semua field wajib', 'error'); return; }
+  Schedules.update(id, { classId, guruId, mapel, day, jamMulai, jamSelesai, room });
+  toast('Jadwal berhasil diperbarui!', 'success');
+  closeModal('modal-edit');
+  renderSchedule();
+}
+
+function deleteSchedule(id) {
+  if (!confirmDialog('Hapus jadwal ini?')) return;
+  Schedules.delete(id);
+  toast('Jadwal dihapus', 'success');
+  renderSchedule();
+}
+</script>
+</body>
+</html>

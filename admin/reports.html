@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Absensi - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Admin</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item active"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📋 Laporan Absensi</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div><h1 class="page-title">Laporan Absensi</h1><p class="page-sub">Rekap kehadiran murid per kelas, periode, dan mata pelajaran</p></div>
+        <button class="btn btn-success" onclick="window.print()">🖨️ Cetak Laporan</button>
+      </div>
+
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label class="form-label">Kelas</label>
+            <select id="filter-class" class="form-control" style="min-width:180px" onchange="renderReport()">
+              <option value="">Semua Kelas</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Tanggal Mulai</label>
+            <input type="date" id="filter-start" class="form-control" onchange="renderReport()">
+          </div>
+          <div>
+            <label class="form-label">Tanggal Selesai</label>
+            <input type="date" id="filter-end" class="form-control" onchange="renderReport()">
+          </div>
+          <button class="btn btn-secondary" onclick="clearFilters()">🔄 Reset</button>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="stats-grid mb-4" id="report-stats"></div>
+
+      <!-- Per Student Table -->
+      <div class="card mb-4">
+        <div class="card-header"><div class="card-title">📊 Rekap Kehadiran Murid</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Murid</th><th>Kelas</th><th>Hadir</th><th>Alpha</th><th>Izin</th><th>Sakit</th><th>Total</th><th>% Hadir</th></tr>
+            </thead>
+            <tbody id="report-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Per Guru Table -->
+      <div class="card mb-4">
+        <div class="card-header"><div class="card-title">📸 Rekap Kehadiran Guru</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Guru</th><th>Mata Pelajaran</th><th>Hadir (Selfie)</th><th>Izin (Disetujui Admin)</th></tr>
+            </thead>
+            <tbody id="guru-report-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sessions List -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">📅 Riwayat Sesi Absensi</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Mata Pelajaran</th><th>Kelas</th><th>Guru</th><th>Hadir</th><th>Alpha</th><th>Status</th></tr></thead>
+            <tbody id="sessions-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  const classes = Classes.getAll();
+  document.getElementById('filter-class').innerHTML += classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  const today = DateUtils.today();
+  const monthStart = today.substring(0,8) + '01';
+  document.getElementById('filter-start').value = monthStart;
+  document.getElementById('filter-end').value = today;
+  renderReport();
+});
+
+function clearFilters() {
+  document.getElementById('filter-class').value = '';
+  const today = DateUtils.today();
+  document.getElementById('filter-start').value = today.substring(0,8) + '01';
+  document.getElementById('filter-end').value = today;
+  renderReport();
+}
+
+function renderReport() {
+  const filterClass = document.getElementById('filter-class').value;
+  const startDate = document.getElementById('filter-start').value;
+  const endDate = document.getElementById('filter-end').value;
+
+  let students = Students.getAll();
+  if (filterClass) students = students.filter(s => s.classId === filterClass);
+
+  let attendances = Attendances.getAll();
+  if (startDate) attendances = attendances.filter(a => a.date >= startDate);
+  if (endDate) attendances = attendances.filter(a => a.date <= endDate);
+
+  const total = attendances.length;
+  const hadir = attendances.filter(a => a.status === 'hadir').length;
+  const alpha = attendances.filter(a => a.status === 'alpha').length;
+  const izin = attendances.filter(a => a.status === 'izin').length;
+  const sakit = attendances.filter(a => a.status === 'sakit').length;
+
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">${hadir}</div><div class="stat-label">Total Hadir</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">❌</div><div><div class="stat-value">${alpha}</div><div class="stat-label">Total Alpha</div></div></div>
+    <div class="stat-card"><div class="stat-icon yellow">📄</div><div><div class="stat-value">${izin}</div><div class="stat-label">Total Izin</div></div></div>
+    <div class="stat-card"><div class="stat-icon cyan">🏥</div><div><div class="stat-value">${sakit}</div><div class="stat-label">Total Sakit</div></div></div>
+  `;
+
+  const tbody = document.getElementById('report-table');
+  tbody.innerHTML = students.map(s => {
+    const sAtt = attendances.filter(a => a.studentId === s.id);
+    const h = sAtt.filter(a => a.status === 'hadir').length;
+    const al = sAtt.filter(a => a.status === 'alpha').length;
+    const iz = sAtt.filter(a => a.status === 'izin').length;
+    const sk = sAtt.filter(a => a.status === 'sakit').length;
+    const tot = sAtt.length;
+    const pct = tot ? Math.round((h/tot)*100) : 0;
+    const cls = Classes.getById(s.classId);
+    const pctColor = pct >= 80 ? 'success' : pct >= 60 ? 'warning' : 'danger';
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px">${s.photo?`<img src="${s.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">`:`<div class="avatar" style="width:32px;height:32px;font-size:12px">${Students.initials(s.name)}</div>`}<span style="font-weight:600">${s.name}</span></div></td>
+      <td><span class="badge badge-primary">${cls?.name||'-'}</span></td>
+      <td><span style="color:var(--success);font-weight:700">${h}</span></td>
+      <td><span style="color:var(--danger);font-weight:700">${al}</span></td>
+      <td><span style="color:var(--warning);font-weight:700">${iz}</span></td>
+      <td><span style="color:var(--info);font-weight:700">${sk}</span></td>
+      <td>${tot}</td>
+      <td><span class="badge badge-${pctColor}">${pct}%</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" class="text-center text-muted" style="padding:20px">Tidak ada data murid</td></tr>';
+
+  // Guru Report
+  const gurus = DB.getUsers().filter(u => u.role === ROLES.GURU);
+  let gAttendances = GuruAttendances.getAll();
+  if (startDate) gAttendances = gAttendances.filter(a => a.date >= startDate);
+  if (endDate) gAttendances = gAttendances.filter(a => a.date <= endDate);
+  
+  let gPermits = GuruPermits.getAll().filter(p => p.status === 'approved');
+  if (startDate) gPermits = gPermits.filter(p => p.dateEnd >= startDate);
+  if (endDate) gPermits = gPermits.filter(p => p.dateStart <= endDate);
+  
+  const gtbody = document.getElementById('guru-report-table');
+  gtbody.innerHTML = gurus.map(g => {
+    const gAttCount = gAttendances.filter(a => a.guruId === g.id).length;
+    const gPermitDays = gPermits.filter(p => p.guruId === g.id).reduce((acc, p) => {
+      let d = new Date(p.dateStart > startDate ? p.dateStart : startDate);
+      let eEnd = endDate ? new Date(endDate) : new Date(p.dateEnd);
+      let e = new Date(p.dateEnd);
+      if (e > eEnd) e = eEnd;
+      
+      while(d <= e) { acc.add(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1); }
+      return acc;
+    }, new Set()).size;
+    
+    return `<tr>
+      <td><div style="font-weight:600;display:flex;align-items:center;gap:8px"><div class="avatar" style="width:32px;height:32px;font-size:12px;background:var(--guru-grad);color:white">${Students.initials(g.name)}</div><div>${g.name}<div style="font-size:12px;color:var(--text-muted);font-weight:400">${g.username}</div></div></div></td>
+      <td>${(g.mata_pelajaran||[]).map(m=>`<span class="badge badge-info" style="margin-right:4px">${m}</span>`).join('') || '-'}</td>
+      <td><span style="color:var(--success);font-weight:700">${gAttCount}</span> hari</td>
+      <td><span style="color:var(--warning);font-weight:700">${gPermitDays}</span> hari</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="text-center text-muted" style="padding:20px">Tidak ada data guru</td></tr>';
+
+  let sessions = Sessions.getAll();
+  if (startDate) sessions = sessions.filter(s => s.date >= startDate);
+  if (endDate) sessions = sessions.filter(s => s.date <= endDate);
+  if (filterClass) sessions = sessions.filter(s => s.classId === filterClass);
+  sessions = sessions.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const stbody = document.getElementById('sessions-table');
+  stbody.innerHTML = sessions.map(ses => {
+    const cls = Classes.getById(ses.classId);
+    const guru = DB.getUsers().find(u => u.id === ses.guruId);
+    const att = Attendances.getBySession(ses.id);
+    return `<tr>
+      <td>${DateUtils.format(ses.date||ses.createdAt)}</td>
+      <td><strong>${ses.mapel||'-'}</strong></td>
+      <td><span class="badge badge-primary">${cls?.name||'-'}</span></td>
+      <td>${guru?.name||'-'}</td>
+      <td><span style="color:var(--success);font-weight:700">${att.filter(a=>a.status==='hadir').length}</span></td>
+      <td><span style="color:var(--danger);font-weight:700">${att.filter(a=>a.status==='alpha').length}</span></td>
+      <td><span class="badge badge-${ses.status==='open'?'warning':'muted'}">${ses.status==='open'?'Berlangsung':'Selesai'}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="text-center text-muted" style="padding:20px">Belum ada sesi absensi</td></tr>';
+}
+</script>
+</body>
+</html>

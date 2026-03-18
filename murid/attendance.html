@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Riwayat Absensi - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-murid">🎒</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Portal Murid</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">🏠</span> Beranda</a>
+      <a href="attendance.html" class="nav-item active"><span class="nav-icon">📊</span> Riwayat Absensi</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="permit.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📊 Riwayat Absensi</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Riwayat Absensi Saya</h1>
+        <p class="page-sub">Rekap kehadiran per mata pelajaran</p>
+      </div>
+
+      <!-- Summary -->
+      <div class="stats-grid mb-4" id="summary-stats"></div>
+
+      <!-- Filter -->
+      <div class="card mb-4">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label class="form-label">Tanggal Mulai</label>
+            <input type="date" id="filter-start" class="form-control" onchange="renderTable()">
+          </div>
+          <div>
+            <label class="form-label">Tanggal Selesai</label>
+            <input type="date" id="filter-end" class="form-control" onchange="renderTable()">
+          </div>
+          <div>
+            <label class="form-label">Status</label>
+            <select id="filter-status" class="form-control" onchange="renderTable()">
+              <option value="">Semua</option>
+              <option value="hadir">✅ Hadir</option>
+              <option value="alpha">❌ Alpha</option>
+              <option value="izin">📄 Izin</option>
+              <option value="sakit">🏥 Sakit</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="clearFilter()">🔄 Reset</button>
+        </div>
+      </div>
+
+      <!-- Per Mapel Summary -->
+      <div class="card mb-4">
+        <div class="card-title mb-4">📚 Rekap Per Mata Pelajaran</div>
+        <div id="mapel-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px"></div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 Detail Riwayat</div><span id="count-label" class="text-muted fs-sm"></span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Hari</th><th>Mata Pelajaran</th><th>Jam</th><th>Status</th></tr></thead>
+            <tbody id="att-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script>
+let currentStudent;
+const statusBadge = { hadir:'badge-success', alpha:'badge-danger', izin:'badge-warning', sakit:'badge-info' };
+const statusLabel = { hadir:'✅ Hadir', alpha:'❌ Alpha', izin:'📄 Izin', sakit:'🏥 Sakit' };
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.MURID);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  currentStudent = Students.getByNim(user.nim);
+  if (!currentStudent) return;
+  const today = DateUtils.today();
+  document.getElementById('filter-end').value = today;
+  document.getElementById('filter-start').value = today.substring(0,8) + '01';
+  renderSummary();
+  renderTable();
+  renderMapelSummary();
+});
+
+function renderSummary() {
+  const s = Attendances.summary(currentStudent.id);
+  const pct = s.total ? Math.round((s.hadir/s.total)*100) : 0;
+  document.getElementById('summary-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">${s.hadir}</div><div class="stat-label">Hadir</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">❌</div><div><div class="stat-value">${s.alpha}</div><div class="stat-label">Alpha</div></div></div>
+    <div class="stat-card"><div class="stat-icon yellow">📄</div><div><div class="stat-value">${s.izin}</div><div class="stat-label">Izin</div></div></div>
+    <div class="stat-card"><div class="stat-icon cyan">🏥</div><div><div class="stat-value">${s.sakit}</div><div class="stat-label">Sakit</div></div></div>
+    <div class="stat-card"><div class="stat-icon indigo">📊</div><div><div class="stat-value">${pct}%</div><div class="stat-label">% Kehadiran</div></div></div>
+  `;
+}
+
+function renderMapelSummary() {
+  const all = Attendances.getByStudent(currentStudent.id);
+  const mapelMap = {};
+  all.forEach(a => {
+    if (!mapelMap[a.mapel]) mapelMap[a.mapel] = { hadir:0, alpha:0, izin:0, sakit:0, total:0 };
+    mapelMap[a.mapel][a.status]++;
+    mapelMap[a.mapel].total++;
+  });
+  const container = document.getElementById('mapel-summary');
+  const entries = Object.entries(mapelMap);
+  if (!entries.length) { container.innerHTML = '<div class="text-muted">Belum ada data</div>'; return; }
+  container.innerHTML = entries.map(([mapel, s]) => {
+    const pct = s.total ? Math.round((s.hadir/s.total)*100) : 0;
+    const pctColor = pct>=80 ? 'var(--success)' : pct>=60 ? 'var(--warning)' : 'var(--danger)';
+    return `<div style="background:var(--bg);border-radius:10px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">${mapel}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${s.total} pertemuan</div>
+      <div style="height:6px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin-bottom:6px">
+        <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:99px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span style="color:var(--success)">✅ ${s.hadir}</span>
+        <span style="color:var(--danger)">❌ ${s.alpha}</span>
+        <span style="color:var(--warning)">📄 ${s.izin}</span>
+        <span style="font-weight:700;color:${pctColor}">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const startDate = document.getElementById('filter-start').value;
+  const endDate = document.getElementById('filter-end').value;
+  const filterStatus = document.getElementById('filter-status').value;
+  let atts = Attendances.getByStudent(currentStudent.id);
+  if (startDate) atts = atts.filter(a => a.date >= startDate);
+  if (endDate) atts = atts.filter(a => a.date <= endDate);
+  if (filterStatus) atts = atts.filter(a => a.status === filterStatus);
+  atts.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  document.getElementById('count-label').textContent = `${atts.length} catatan`;
+  const tbody = document.getElementById('att-table');
+  tbody.innerHTML = atts.length ? atts.map(a => {
+    const d = new Date(a.date);
+    const ses = Sessions.getById(a.sessionId);
+    return `<tr>
+      <td>${DateUtils.format(a.date)}</td>
+      <td>${DAYS[d.getDay()]}</td>
+      <td><strong>${a.mapel||'-'}</strong></td>
+      <td style="font-size:13px">${ses?.jamMulai||'-'} – ${ses?.jamSelesai||'-'}</td>
+      <td><span class="badge ${statusBadge[a.status]||'badge-muted'}">${statusLabel[a.status]||a.status}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:24px">Tidak ada data</td></tr>';
+}
+
+function clearFilter() {
+  const today = DateUtils.today();
+  document.getElementById('filter-start').value = today.substring(0,8)+'01';
+  document.getElementById('filter-end').value = today;
+  document.getElementById('filter-status').value = '';
+  renderTable();
+}
+</script>
+</body>
+</html>

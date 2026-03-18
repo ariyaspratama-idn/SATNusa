@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div>
+        <div class="sidebar-brand-text">AbsensiPro</div>
+        <div class="sidebar-brand-role">Panel Admin</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebar-user"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📊 Dashboard</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Selamat Datang, <span id="admin-name"></span>! 👋</h1>
+        <p class="page-sub">Ringkasan data sistem absensi sekolah hari ini</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- Quick Actions -->
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚡ Aksi Cepat</div>
+          </div>
+          <div style="display:grid;gap:10px;">
+            <a href="students.html" class="btn btn-primary"><span>👨‍🎓</span> Daftarkan Murid Baru</a>
+            <a href="schedule.html" class="btn btn-info"><span>📅</span> Atur Jadwal Pelajaran</a>
+            <a href="reports.html" class="btn btn-success"><span>📋</span> Lihat Laporan Absensi</a>
+            <a href="classes.html" class="btn btn-secondary"><span>🏫</span> Kelola Kelas</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📅 Jadwal Hari Ini</div>
+          </div>
+          <div id="today-schedule"></div>
+        </div>
+      </div>
+
+      <!-- Recent Students -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👨‍🎓 Murid Terbaru</div>
+          <a href="students.html" class="btn btn-sm btn-secondary">Lihat Semua</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Murid</th><th>NIM</th><th>Kelas</th><th>Terdaftar</th></tr></thead>
+            <tbody id="recent-students"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('admin-name').textContent = user.name.split(',')[0];
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+
+  // Stats
+  const students = Students.getAll();
+  const classes = Classes.getAll();
+  const sessions = Sessions.getAll();
+  const attendances = Attendances.getAll();
+  const todayAtt = attendances.filter(a => a.date === DateUtils.today());
+  const guruAttendances = GuruAttendances.getAll().filter(a => a.date === DateUtils.today());
+
+  const statsGrid = document.getElementById('stats-grid');
+  statsGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon indigo">👨‍🎓</div>
+      <div><div class="stat-value">${students.length}</div><div class="stat-label">Total Murid</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon cyan">🏫</div>
+      <div><div class="stat-value">${classes.length}</div><div class="stat-label">Total Kelas</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">✅</div>
+      <div><div class="stat-value">${todayAtt.filter(a=>a.status==='hadir').length}</div><div class="stat-label">Hadir Hari Ini</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon red">❌</div>
+      <div><div class="stat-value">${todayAtt.filter(a=>a.status==='alpha').length}</div><div class="stat-label">Alpha Hari Ini</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon yellow">📋</div>
+      <div><div class="stat-value">${sessions.length}</div><div class="stat-label">Total Sesi</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">📅</div>
+      <div><div class="stat-value">${Schedules.getAll().length}</div><div class="stat-label">Jadwal Aktif</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon blue">📸</div>
+      <div><div class="stat-value">${guruAttendances.length}</div><div class="stat-label">Guru Hadir (Selfie)</div></div>
+    </div>
+  `;
+
+  // Today's schedule
+  const today = DateUtils.currentDay();
+  const todayScheds = Schedules.getByDay(today).sort((a,b)=>a.jamMulai.localeCompare(b.jamMulai));
+  const users = DB.getUsers();
+  const schHtml = todayScheds.length ? todayScheds.map(s => {
+    const guru = users.find(u => u.id === s.guruId);
+    const cls = Classes.getById(s.classId);
+    return `<div class="schedule-slot" style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;">
+      <div class="schedule-time"><div style="font-weight:700;color:var(--text)">${s.jamMulai}</div><div>${s.jamSelesai}</div></div>
+      <div class="schedule-mapel">
+        <div class="schedule-mapel-name">${s.mapel}</div>
+        <div class="schedule-mapel-class">${cls?.name || '-'} · ${guru?.name || '-'} · ${s.room || '-'}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:20px"><div class="icon">📅</div><p>Tidak ada jadwal hari ini</p></div>';
+  document.getElementById('today-schedule').innerHTML = schHtml;
+
+  // Recent students
+  const recent = [...students].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);
+  const tbody = document.getElementById('recent-students');
+  tbody.innerHTML = recent.length ? recent.map(s => {
+    const cls = Classes.getById(s.classId);
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px;">${renderAvatarOrInitials(s)} <span>${s.name}</span></div></td>
+      <td><code>${s.nim}</code></td>
+      <td><span class="badge badge-primary">${cls?.name || '-'}</span></td>
+      <td class="text-muted">${DateUtils.format(s.createdAt)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="4" class="text-center text-muted" style="padding:30px">Belum ada murid terdaftar</td></tr>';
+});
+</script>
+</body>
+</html>

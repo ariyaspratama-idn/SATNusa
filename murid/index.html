@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Murid - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-murid">🎒</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Portal Murid</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item active"><span class="nav-icon">🏠</span> Beranda</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">📊</span> Riwayat Absensi</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="permit.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">🏠 Beranda</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Halo, <span id="murid-name"></span>! 👋</h1>
+        <p class="page-sub">Ini adalah kartu identitas dan QR absensimu</p>
+      </div>
+
+      <div class="grid-2">
+        <!-- QR Card -->
+        <div class="card" style="text-align:center">
+          <div class="card-header" style="justify-content:center"><div class="card-title">🪪 Kartu Identitas & QR Code</div></div>
+          <div id="id-card" class="qr-card" style="margin: 0 auto 20px;">
+            <div class="qr-card-stripe"></div>
+            <div class="qr-card-header">
+              <div class="qr-card-logo-left">🏫</div>
+              <div class="qr-card-header-text">
+                <div class="qr-card-title">KARTU TANDA PELAJAR</div>
+                <div class="qr-card-subtitle">SMK ABSENSIPRO</div>
+              </div>
+              <div class="qr-card-logo-right">📚</div>
+            </div>
+            <div class="qr-card-body">
+              <div class="qr-card-details">
+                <div class="qr-card-row"><div class="qr-card-label">Nama</div><div>:</div><div id="card-name" class="qr-card-value" style="margin-left:8px"></div></div>
+                <div class="qr-card-row"><div class="qr-card-label">NIM</div><div>:</div><div id="card-nim" class="qr-card-value" style="margin-left:8px"></div></div>
+                <div class="qr-card-row"><div class="qr-card-label">Kelas</div><div>:</div><div id="card-class" class="qr-card-value" style="margin-left:8px"></div></div>
+                
+                <div class="qr-card-qr-section">
+                  <div id="qrcode" class="qrcode-wrap"></div>
+                  <div class="qr-card-bottom-text">ABSENSI PRO</div>
+                </div>
+              </div>
+              <div class="qr-card-photo-col">
+                <div id="card-photo"></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="downloadQR()">⬇️ Unduh QR</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Cetak</button>
+          </div>
+        </div>
+
+        <!-- Stats + Today -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-title mb-4">📊 Rekap Kehadiran</div>
+            <div id="murid-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+            <div id="pct-bar" style="margin-top:16px"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">📅 Jadwal Hari Ini</div><a href="schedule.html" class="btn btn-sm btn-secondary">Semua</a></div>
+            <div id="today-schedule"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Attendance -->
+      <div class="card mt-4">
+        <div class="card-header"><div class="card-title">🕐 Absensi Terakhir</div><a href="attendance.html" class="btn btn-sm btn-secondary">Lihat Semua</a></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Mata Pelajaran</th><th>Kelas</th><th>Status</th></tr></thead>
+            <tbody id="recent-att"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentStudent = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.MURID);
+  if (!user) return;
+  document.getElementById('murid-name').textContent = user.name.split(' ')[0];
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+
+  currentStudent = Students.getByNim(user.nim);
+  if (!currentStudent) { toast('Data murid tidak ditemukan', 'error'); return; }
+
+  const cls = Classes.getById(currentStudent.classId);
+
+  // ID Card
+  document.getElementById('card-name').textContent = currentStudent.name;
+  document.getElementById('card-nim').textContent = currentStudent.nim;
+  document.getElementById('card-class').textContent = cls ? cls.name : '-';
+  document.getElementById('card-photo').innerHTML = currentStudent.photo
+    ? `<img src="${currentStudent.photo}" class="qr-card-img" alt="">`
+    : `<div class="qr-card-img">FOTO<br>3x4</div>`;
+
+  new QRCode(document.getElementById('qrcode'), {
+    text: JSON.stringify({ id: currentStudent.id, nim: currentStudent.nim, name: currentStudent.name }),
+    width: 64, height: 64, colorDark: '#0F172A', colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+
+  // Stats
+  const summary = Attendances.summary(currentStudent.id);
+  const pct = summary.total ? Math.round((summary.hadir / summary.total) * 100) : 0;
+  const pctColor = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+
+  document.getElementById('murid-stats').innerHTML = `
+    <div style="background:rgba(16,185,129,0.1);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--success)">${summary.hadir}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Hadir</div>
+    </div>
+    <div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--danger)">${summary.alpha}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Alpha</div>
+    </div>
+    <div style="background:rgba(245,158,11,0.1);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--warning)">${summary.izin}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Izin</div>
+    </div>
+    <div style="background:rgba(59,130,246,0.1);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--info)">${summary.sakit}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Sakit</div>
+    </div>
+  `;
+  document.getElementById('pct-bar').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:13px;color:var(--text-muted)">Tingkat Kehadiran</span>
+      <span style="font-weight:800;font-size:16px;color:${pctColor}">${pct}%</span>
+    </div>
+    <div style="height:10px;background:var(--bg);border-radius:99px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:99px;transition:width 1s ease"></div>
+    </div>
+    ${pct < 75 ? `<div style="font-size:12px;color:var(--danger);margin-top:6px">⚠️ Kehadiran di bawah 75%. Perlu perhatian.</div>` : `<div style="font-size:12px;color:var(--success);margin-top:6px">✅ Kehadiran baik!</div>`}
+  `;
+
+  // Today's schedule
+  if (cls) {
+    const today = DateUtils.currentDay();
+    const todayScheds = Schedules.getByClass(cls.id).filter(s => s.day === today).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+    const todayEl = document.getElementById('today-schedule');
+    todayEl.innerHTML = todayScheds.length ? todayScheds.map(s => {
+      const guru = DB.getUsers().find(u => u.id === s.guruId);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="min-width:80px;text-align:center">
+          <div style="font-weight:800;font-size:14px">${s.jamMulai}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${s.jamSelesai}</div>
+        </div>
+        <div>
+          <div style="font-weight:600">${s.mapel}</div>
+          <div style="font-size:12px;color:var(--text-muted)">👤 ${guru?.name?.split(',')[0]||'-'} · ${s.room||'-'}</div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty-state" style="padding:20px"><div class="icon">☀️</div><p>Tidak ada jadwal hari ini</p></div>';
+  }
+
+  // Recent attendance
+  const atts = Attendances.getByStudent(currentStudent.id).sort((a,b) => b.date?.localeCompare(a.date)).slice(0,5);
+  const tbody = document.getElementById('recent-att');
+  const statusBadge = { hadir: 'badge-success', alpha: 'badge-danger', izin: 'badge-warning', sakit: 'badge-info' };
+  tbody.innerHTML = atts.length ? atts.map(a => `<tr>
+    <td>${DateUtils.format(a.date)}</td>
+    <td><strong>${a.mapel||'-'}</strong></td>
+    <td><span class="badge badge-primary">${Classes.getById(a.classId)?.name||'-'}</span></td>
+    <td><span class="badge ${statusBadge[a.status]||'badge-muted'}">${{hadir:'✅ Hadir',alpha:'❌ Alpha',izin:'📄 Izin',sakit:'🏥 Sakit'}[a.status]||a.status}</span></td>
+  </tr>`).join('') : '<tr><td colspan="4" class="text-center text-muted" style="padding:20px">Belum ada data absensi</td></tr>';
+});
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) { toast('QR belum siap', 'warning'); return; }
+  const link = document.createElement('a');
+  link.download = `QR_${currentStudent?.nim||'murid'}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+}
+</script>
+</body>
+</html>

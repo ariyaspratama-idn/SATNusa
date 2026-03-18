@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Kelas - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Admin</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item active"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">🏫 Manajemen Kelas</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div><h1 class="page-title">Manajemen Kelas</h1><p class="page-sub">Kelola data kelas dan daftar murid</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-add')">➕ Tambah Kelas</button>
+      </div>
+      <div id="classes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add" class="modal-overlay hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">➕ Tambah Kelas Baru</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Nama Kelas *</label><input type="text" id="add-name" class="form-control" placeholder="contoh: X RPL 2"></div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Tingkat *</label>
+          <select id="add-grade" class="form-control"><option value="X">X</option><option value="XI">XI</option><option value="XII">XII</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Jurusan *</label><input type="text" id="add-jurusan" class="form-control" placeholder="contoh: RPL"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add')">Batal</button>
+      <button class="btn btn-primary" onclick="addClass()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  renderClasses();
+});
+
+function renderClasses() {
+  const classes = Classes.getAll();
+  const container = document.getElementById('classes-grid');
+  container.innerHTML = classes.length ? classes.map(cls => {
+    const students = Students.getByClass(cls.id);
+    const schedules = Schedules.getByClass(cls.id);
+    return `<div class="card" style="border-top:3px solid var(--primary)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:20px;font-weight:800">${cls.name}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Tingkat ${cls.grade} · ${cls.jurusan}</div>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="deleteClass('${cls.id}')">🗑️</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800">${students.length}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Murid</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800">${schedules.length}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Jadwal / Minggu</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Murid terdaftar:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;max-height:80px;overflow-y:auto;margin-bottom:12px">
+        ${students.slice(0,10).map(s => `<span class="badge badge-muted">${s.name.split(' ')[0]}</span>`).join('') || '<span style="font-size:12px;color:var(--text-muted)">Belum ada murid</span>'}
+        ${students.length > 10 ? `<span class="badge badge-muted">+${students.length-10} lainnya</span>` : ''}
+      </div>
+      <a href="students.html?class=${cls.id}" class="btn btn-secondary btn-sm w-full">👨‍🎓 Lihat Murid</a>
+    </div>`;
+  }).join('') : `<div style="grid-column:1/-1"><div class="empty-state card"><div class="icon">🏫</div><p>Belum ada kelas. Tambahkan kelas terlebih dahulu.</p></div></div>`;
+}
+
+function addClass() {
+  const name = document.getElementById('add-name').value.trim();
+  const grade = document.getElementById('add-grade').value;
+  const jurusan = document.getElementById('add-jurusan').value.trim();
+  if (!name || !grade || !jurusan) { toast('Isi semua field', 'error'); return; }
+  Classes.add({ name, grade, jurusan });
+  toast('Kelas berhasil ditambahkan!', 'success');
+  closeModal('modal-add');
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-jurusan').value = '';
+  renderClasses();
+}
+
+function deleteClass(id) {
+  const cls = Classes.getById(id);
+  if (!cls) return;
+  if (Students.getByClass(id).length) { toast('Kelas masih memiliki murid. Pindahkan/hapus murid terlebih dahulu.', 'error'); return; }
+  if (!confirmDialog(`Hapus kelas "${cls.name}"?`)) return;
+  Classes.delete(id);
+  toast('Kelas dihapus', 'success');
+  renderClasses();
+}
+</script>
+</body>
+</html>

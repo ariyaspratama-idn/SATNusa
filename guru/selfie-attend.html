@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensi Selfie - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    .selfie-container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .selfie-video-wrap {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+    #selfie-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirror effect */
+    }
+    .selfie-overlay-text {
+      position: absolute;
+      bottom: 12px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 13px;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+    .selfie-guide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .selfie-oval {
+      width: 180px;
+      height: 220px;
+      border: 3px solid rgba(255,255,255,0.6);
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.3);
+      animation: selfie-pulse 2s ease-in-out infinite;
+    }
+    @keyframes selfie-pulse {
+      0%, 100% { border-color: rgba(255,255,255,0.6); }
+      50% { border-color: rgba(79,70,229,0.9); box-shadow: 0 0 0 9999px rgba(0,0,0,0.4), 0 0 20px rgba(79,70,229,0.5); }
+    }
+    .captured-wrap {
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+    }
+    #selfie-canvas { display: none; }
+    #captured-img {
+      width: 100%;
+      border-radius: var(--radius);
+      display: none;
+      transform: scaleX(-1);
+    }
+    .loc-card {
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      margin-top: 12px;
+    }
+    .loc-card.ok { border-color: var(--success); background: rgba(16,185,129,0.08); }
+    .loc-card.fail { border-color: var(--danger); background: rgba(239,68,68,0.08); }
+    .loc-card.loading { border-color: var(--warning); background: rgba(245,158,11,0.08); }
+    .step-badge {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-badge.done { background: var(--success); color: white; }
+    .step-badge.active { background: var(--primary); color: white; }
+    .step-badge.pending { background: var(--bg-card2); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-guru">📚</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Guru</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="selfie-attend.html" class="nav-item active"><span class="nav-icon">📸</span> Absensi Selfie</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Absensi Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Saya</a>
+      <a href="my-permits.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+      <a href="permits.html" class="nav-item"><span class="nav-icon">🗂️</span> Izin Murid</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📸 Absensi Selfie</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+
+    <div class="page-content">
+      <!-- Already checked in today -->
+      <div id="already-checked" class="hidden">
+        <div class="card" style="max-width:500px;margin:0 auto;text-align:center">
+          <div style="font-size:64px;margin-bottom:16px">✅</div>
+          <h2 style="font-size:22px;font-weight:800;margin-bottom:8px">Sudah Absen Hari Ini!</h2>
+          <p class="text-muted" style="margin-bottom:20px">Anda sudah melakukan absensi selfie hari ini</p>
+          <div id="checkin-detail" style="background:var(--bg);border-radius:var(--radius-sm);padding:16px;text-align:left;margin-bottom:20px"></div>
+          <a href="index.html" class="btn btn-secondary">← Kembali ke Dashboard</a>
+        </div>
+      </div>
+
+      <!-- Check-in Form -->
+      <div id="checkin-form">
+        <div class="page-header">
+          <h1 class="page-title">Absensi Kehadiran Guru</h1>
+          <p class="page-sub">Lakukan selfie + verifikasi lokasi untuk absen masuk hari ini</p>
+        </div>
+
+        <!-- Steps indicator -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:24px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="step-badge" id="step1-badge">1</div>
+            <span style="font-size:13px;font-weight:600" id="step1-label">📍 Verifikasi Lokasi</span>
+          </div>
+          <div style="flex:1;height:2px;background:var(--border);min-width:20px;max-width:60px;border-radius:99px" id="step-line1"></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="step-badge" id="step2-badge">2</div>
+            <span style="font-size:13px;font-weight:600" id="step2-label">📸 Ambil Selfie</span>
+          </div>
+          <div style="flex:1;height:2px;background:var(--border);min-width:20px;max-width:60px;border-radius:99px" id="step-line2"></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="step-badge" id="step3-badge">3</div>
+            <span style="font-size:13px;font-weight:600" id="step3-label">✅ Konfirmasi</span>
+          </div>
+        </div>
+
+        <div class="selfie-container">
+          <!-- Step 1: Location -->
+          <div id="step1" class="card mb-4">
+            <div class="card-title mb-4">📍 Langkah 1: Verifikasi Lokasi</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+              Absensi hanya bisa dilakukan di dalam area sekolah (<strong>${SCHOOL_LOCATION?.radius || 500}m</strong> dari koordinat sekolah).
+            </p>
+            <div id="loc-status" class="loc-card loading">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="spinner" style="border-color:rgba(245,158,11,0.3);border-top-color:var(--warning)"></div>
+                <span style="font-size:14px;font-weight:600">Mendeteksi lokasi Anda...</span>
+              </div>
+            </div>
+            <button id="btn-retry-loc" class="btn btn-secondary btn-sm mt-2 hidden" onclick="getLocation()">🔄 Coba Lagi</button>
+            
+            <div id="loc-bypass-container" style="margin-top:12px;padding:12px;background:rgba(245,158,11,0.1);border-radius:8px;border:1px solid rgba(245,158,11,0.5)">
+              <div style="font-size:12px;color:var(--warning);font-weight:600">⚠️ Mengalami kendala lokasi?</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;margin-bottom:8px">Browser menolak akses lokasi jika URL bukan localhost / HTTPS. Gunakan tombol di bawah untuk simulasi:</div>
+              <button onclick="bypassLocation(0,0,0)" class="btn btn-warning btn-sm">Mode Demo (Bypass Lokasi)</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Selfie -->
+          <div id="step2" class="card mb-4" style="opacity:0.4;pointer-events:none">
+            <div class="card-title mb-4">📸 Langkah 2: Ambil Selfie</div>
+
+            <div id="camera-area">
+              <div class="selfie-video-wrap" id="video-wrap">
+                <video id="selfie-video" autoplay playsinline muted></video>
+                <div class="selfie-guide"><div class="selfie-oval"></div></div>
+                <div class="selfie-overlay-text">Posisikan wajah Anda di dalam oval</div>
+              </div>
+              <canvas id="selfie-canvas" width="640" height="480"></canvas>
+              <div style="text-align:center;margin-top:16px">
+                <button id="btn-capture" class="btn btn-primary btn-lg" onclick="captureSelfie()">
+                  📸 Ambil Foto Sekarang
+                </button>
+              </div>
+            </div>
+
+            <div id="preview-area" class="hidden">
+              <img id="captured-img" alt="Selfie Anda">
+              <div style="display:flex;gap:10px;justify-content:center;margin-top:12px">
+                <button class="btn btn-secondary" onclick="retakeSelfie()">🔄 Ulangi Foto</button>
+                <button class="btn btn-success btn-lg" onclick="goToStep3()" id="btn-use-photo">✅ Gunakan Foto Ini</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Confirm -->
+          <div id="step3" class="card" style="opacity:0.4;pointer-events:none">
+            <div class="card-title mb-4">✅ Langkah 3: Konfirmasi Absensi</div>
+            <div id="confirm-detail" style="background:var(--bg);border-radius:var(--radius-sm);padding:16px;margin-bottom:20px"></div>
+            <button class="btn btn-success btn-full btn-lg" id="btn-checkin" onclick="submitCheckin()">
+              🎉 Konfirmasi Absensi Sekarang
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentUser = null;
+let locationData = null;
+let capturedPhoto = null;
+let cameraStream = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = Auth.require(ROLES.GURU);
+  if (!currentUser) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(currentUser);
+
+  // Check if already checked in today
+  const existing = GuruAttendances.getTodayByGuru(currentUser.id);
+  if (existing) {
+    showAlreadyChecked(existing);
+    return;
+  }
+
+  // Start location + camera
+  getLocation();
+  startCamera();
+  updateStepUI(1);
+});
+
+function showAlreadyChecked(record) {
+  document.getElementById('already-checked').classList.remove('hidden');
+  document.getElementById('checkin-form').classList.add('hidden');
+  document.getElementById('checkin-detail').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      ${record.photo ? `<img src="${record.photo}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid var(--success);transform:scaleX(-1)">` : `<div class="avatar avatar-lg" style="width:70px;height:70px;background:var(--guru-grad);color:white">${Students.initials(currentUser?.name||'?')}</div>`}
+      <div>
+        <div style="font-size:16px;font-weight:800">${currentUser?.name || '-'}</div>
+        <div style="color:var(--text-muted);font-size:13px">Check-in: <strong>${record.time}</strong></div>
+      </div>
+    </div>
+    ${record.lat ? `<div style="font-size:13px;color:var(--success)">📍 Lokasi terverifikasi • Jarak: ${record.distance}m dari sekolah</div>` : ''}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px">📅 ${DateUtils.format(record.date)}</div>
+  `;
+}
+
+async function getLocation() {
+  const locEl = document.getElementById('loc-status');
+  const retryBtn = document.getElementById('btn-retry-loc');
+  retryBtn.classList.add('hidden');
+  locEl.className = 'loc-card loading';
+  locEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><div class="spinner" style="border-color:rgba(245,158,11,0.3);border-top-color:var(--warning)"></div><span style="font-size:14px;font-weight:600">Mendeteksi lokasi Anda...</span></div>`;
+
+  try {
+    const pos = await GeoUtils.getCurrentPosition();
+    const { latitude: lat, longitude: lng } = pos.coords;
+    const { inArea, distance } = GeoUtils.isInSchoolArea(lat, lng);
+
+    locationData = { lat, lng, distance, inArea };
+
+    if (inArea) {
+      locEl.className = 'loc-card ok';
+      locEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:20px">✅</span>
+          <span style="font-weight:700;color:var(--success)">Lokasi Terverifikasi!</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted)">📍 Koordinat: ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+        <div style="font-size:13px;color:var(--text-muted)">📏 Jarak dari sekolah: <strong style="color:var(--success)">${distance}m</strong> (maks. ${SCHOOL_LOCATION.radius}m)</div>
+      `;
+      // Enable step 2
+      document.getElementById('step2').style.opacity = '1';
+      document.getElementById('step2').style.pointerEvents = 'auto';
+      updateStepUI(2);
+      document.getElementById('step1-badge').className = 'step-badge done';
+      document.getElementById('step1-badge').textContent = '✓';
+      document.getElementById('step-line1').style.background = 'var(--success)';
+      document.getElementById('loc-bypass-container').classList.add('hidden');
+    } else {
+      locEl.className = 'loc-card fail';
+      locEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:20px">❌</span>
+          <span style="font-weight:700;color:var(--danger)">Di Luar Area Sekolah!</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted)">📏 Anda berada <strong style="color:var(--danger)">${distance}m</strong> dari sekolah</div>
+        <div style="font-size:13px;color:var(--text-muted)">⛔ Batas area: ${SCHOOL_LOCATION.radius}m dari koordinat sekolah</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:8px">Absensi selfie hanya bisa dilakukan di dalam lingkungan sekolah.</div>
+      `;
+      retryBtn.classList.remove('hidden');
+    }
+  } catch (err) {
+    locEl.className = 'loc-card fail';
+    locEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:20px">⚠️</span>
+        <span style="font-weight:700;color:var(--warning)">Tidak Bisa Mendeteksi Lokasi</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted)">${err.message}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:6px">Pastikan izin lokasi diberikan di browser.</div>
+    `;
+    retryBtn.classList.remove('hidden');
+  }
+}
+
+function bypassLocation(lat, lng, distance) {
+  locationData = { lat, lng, distance, inArea: true, bypass: true };
+  const locEl = document.getElementById('loc-status');
+  locEl.className = 'loc-card ok';
+  locEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><span>⚠️</span><span style="font-weight:700;color:var(--warning)">Mode Demo - Lokasi Tidak Diverifikasi</span></div>`;
+  document.getElementById('btn-retry-loc').classList.add('hidden');
+  document.getElementById('loc-bypass-container').classList.add('hidden');
+  document.getElementById('step2').style.opacity = '1';
+  document.getElementById('step2').style.pointerEvents = 'auto';
+  document.getElementById('step1-badge').className = 'step-badge done';
+  document.getElementById('step1-badge').textContent = '✓';
+  document.getElementById('step-line1').style.background = 'var(--warning)';
+}
+
+let detectionInterval = null;
+let useAI = false;
+
+async function startCamera() {
+  try {
+    if (!cameraStream) {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+        const video = document.getElementById('selfie-video');
+        video.srcObject = cameraStream;
+        await video.play();
+    }
+
+    const video = document.getElementById('selfie-video');
+    const btnCapture = document.getElementById('btn-capture');
+    btnCapture.disabled = true;
+    btnCapture.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin-right:6px"></div> Memuat AI...';
+    
+    if (typeof faceapi === 'undefined') {
+        btnCapture.disabled = false;
+        btnCapture.innerHTML = '📸 Ambil Foto Manual (AI Gagal)';
+        return;
+    }
+
+    try {
+      const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+      if (!useAI) {
+         await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+         useAI = true;
+      }
+      btnCapture.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;border-top-color:var(--warning);margin-right:6px"></div> Mencari Wajah...';
+      
+      if (detectionInterval) clearInterval(detectionInterval);
+      detectionInterval = setInterval(async () => {
+        if (video.paused || video.ended) return;
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+        if (detections.length > 0 && detections[0].score > 0.3) {
+           btnCapture.disabled = false;
+           btnCapture.innerHTML = '📸 Ambil Foto (Wajah &checkmark;)';
+           btnCapture.style.background = 'var(--success)';
+        } else {
+           btnCapture.disabled = true;
+           btnCapture.innerHTML = 'Posisikan Wajah Anda...';
+           btnCapture.style.background = 'var(--primary)';
+        }
+      }, 500);
+    } catch (e) {
+      console.error('FaceAPI Init Error:', e);
+      btnCapture.disabled = false;
+      btnCapture.innerHTML = '📸 Ambil Foto (Mode Manual)';
+    }
+
+  } catch (e) {
+    toast('Tidak bisa akses kamera: ' + e.message, 'warning');
+    document.getElementById('camera-area').innerHTML = `
+      <div class="empty-state" style="padding:20px 10px">
+        <div class="icon">📷</div>
+        <p>Kamera tidak tersedia atau dilarang oleh browser</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">${e.message}</p>
+        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.5);padding:14px;border-radius:8px">
+          <div style="font-size:12px;color:var(--warning);font-weight:600;margin-bottom:8px">⚠️ Butuh Simulasi / Bypass?</div>
+          <button class="btn btn-warning btn-sm" onclick="bypassCamera()">Gunakan Foto Demo</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function bypassCamera() {
+  const cvs = document.createElement('canvas');
+  cvs.width = 640; cvs.height = 480;
+  const ctx = cvs.getContext('2d');
+  ctx.fillStyle = '#E2E8F0'; ctx.fillRect(0,0,640,480);
+  ctx.fillStyle = '#64748B'; ctx.font = 'bold 36px Inter, sans-serif'; 
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('FOTO DEMO', 320, 240);
+  
+  capturedPhoto = cvs.toDataURL('image/jpeg');
+  const img = document.getElementById('captured-img');
+  img.src = capturedPhoto;
+  img.style.display = 'block';
+  document.getElementById('camera-area').classList.add('hidden');
+  document.getElementById('preview-area').classList.remove('hidden');
+}
+
+function captureSelfie() {
+  if (detectionInterval) clearInterval(detectionInterval);
+  const video = document.getElementById('selfie-video');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  ctx.drawImage(video, 0, 0);
+  capturedPhoto = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Show preview
+  const img = document.getElementById('captured-img');
+  img.src = capturedPhoto;
+  img.style.display = 'block';
+  document.getElementById('camera-area').classList.add('hidden');
+  document.getElementById('preview-area').classList.remove('hidden');
+}
+
+function retakeSelfie() {
+  capturedPhoto = null;
+  document.getElementById('camera-area').classList.remove('hidden');
+  document.getElementById('preview-area').classList.add('hidden');
+  document.getElementById('captured-img').style.display = 'none';
+  startCamera();
+}
+
+function goToStep3() {
+  if (!capturedPhoto) { toast('Ambil selfie terlebih dahulu', 'error'); return; }
+  // Stop camera
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+
+  // Fill confirm detail
+  document.getElementById('confirm-detail').innerHTML = `
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <img src="${capturedPhoto}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--success);transform:scaleX(-1)">
+      <div>
+        <div style="font-size:16px;font-weight:800">${currentUser.name}</div>
+        <div style="color:var(--text-muted);font-size:13px;margin-top:4px">📅 ${DateUtils.format(DateUtils.today())}</div>
+        <div style="color:var(--text-muted);font-size:13px">🕐 ${DateUtils.currentTime()}</div>
+        ${locationData?.lat ? `<div style="color:var(--success);font-size:13px;margin-top:4px">📍 ${locationData.bypass ? 'Mode Demo' : 'Lokasi terverifikasi · ' + locationData.distance + 'm dari sekolah'}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('step3').style.opacity = '1';
+  document.getElementById('step3').style.pointerEvents = 'auto';
+  document.getElementById('step2-badge').className = 'step-badge done';
+  document.getElementById('step2-badge').textContent = '✓';
+  document.getElementById('step-line2').style.background = 'var(--success)';
+  document.getElementById('step3-badge').className = 'step-badge active';
+  updateStepUI(3);
+
+  // Scroll to step3
+  document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function submitCheckin() {
+  if (!capturedPhoto) { toast('Selfie diperlukan', 'error'); return; }
+  const btn = document.getElementById('btn-checkin');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Mengirim Data...';
+
+  try {
+    const payload = {
+        username: currentUser.id,
+        lat: locationData?.lat || null,
+        lng: locationData?.lng || null,
+        image: capturedPhoto
+    };
+
+    const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.status) {
+        toast('🎉 Absensi berhasil divalidasi dan disimpan di server!', 'success');
+        
+        // Simpan juga ke local db (mock) untuk kompabilitas offline
+        const record = GuruAttendances.checkIn({
+          guruId: currentUser.id,
+          guruName: currentUser.name,
+          photo: capturedPhoto,
+          lat: payload.lat,
+          lng: payload.lng,
+          distance: result.distance ? Math.round(result.distance) : locationData?.distance || 0,
+          locationName: locationData?.bypass ? 'Mode Demo' : SCHOOL_LOCATION.name,
+        });
+
+        setTimeout(() => {
+          document.getElementById('checkin-form').classList.add('hidden');
+          showAlreadyChecked(record);
+          document.getElementById('already-checked').classList.remove('hidden');
+        }, 1000);
+    } else {
+        toast('Gagal: ' + (result.message || 'Server error'), 'error');
+        btn.disabled = false;
+        btn.innerHTML = '🎉 Konfirmasi Absensi Sekarang';
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Gagal terhubung ke server/database.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '🎉 Konfirmasi Absensi Sekarang';
+  }
+}
+
+function updateStepUI(step) {
+  if (step >= 1) { document.getElementById('step1-badge').className = step > 1 ? 'step-badge done' : 'step-badge active'; }
+  if (step >= 2) { document.getElementById('step2-badge').className = step > 2 ? 'step-badge done' : 'step-badge active'; }
+  if (step >= 3) { document.getElementById('step3-badge').className = 'step-badge active'; }
+}
+</script>
+</body>
+</html>

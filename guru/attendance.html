@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensi Kelas - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-guru">📚</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Guru</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="selfie-attend.html" class="nav-item"><span class="nav-icon">📸</span> Absensi Selfie</a>
+      <a href="attendance.html" class="nav-item active"><span class="nav-icon">✅</span> Absensi Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Saya</a>
+      <a href="my-permits.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+      <a href="permits.html" class="nav-item"><span class="nav-icon">🗂️</span> Izin Murid</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">✅ Absensi Kelas</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+
+      <!-- Step 1: Setup Session -->
+      <div id="step-setup">
+        <div class="page-header">
+          <h1 class="page-title">Buat Sesi Absensi</h1>
+          <p class="page-sub">Pilih jadwal atau buat sesi manual</p>
+        </div>
+
+        <!-- Jadwal hari ini -->
+        <div class="card mb-4">
+          <div class="card-header"><div class="card-title">📅 Jadwal Hari Ini</div></div>
+          <div id="today-scheds-list"></div>
+        </div>
+
+        <!-- Manual -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">✏️ Buat Sesi Manual</div></div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Kelas *</label>
+              <select id="sel-class" class="form-control"><option value="">-- Pilih Kelas --</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mata Pelajaran *</label>
+              <input type="text" id="sel-mapel" class="form-control" placeholder="Nama mata pelajaran" list="mapel-list-guru">
+              <datalist id="mapel-list-guru"></datalist>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Tanggal</label>
+              <input type="date" id="sel-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Jam</label>
+              <div style="display:flex;gap:8px">
+                <input type="time" id="sel-time-start" class="form-control">
+                <input type="time" id="sel-time-end" class="form-control">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="startManualSession()">▶️ Mulai Absensi</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Attendance -->
+      <div id="step-attendance" class="hidden">
+        <div class="page-header flex justify-between items-center">
+          <div>
+            <h1 class="page-title" id="att-title">Absensi</h1>
+            <p class="page-sub" id="att-sub"></p>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-warning" onclick="openModal('modal-scanner')">📷 Scan QR</button>
+            <button class="btn btn-danger" onclick="closeSession()">🔒 Tutup Sesi</button>
+          </div>
+        </div>
+
+        <!-- Mini stats -->
+        <div class="stats-grid mb-4" id="att-stats"></div>
+
+        <!-- Student list -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👨‍🎓 Daftar Murid</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-success" onclick="markAll('hadir')">✅ Semua Hadir</button>
+              <button class="btn btn-sm btn-danger" onclick="markAll('alpha')">❌ Semua Alpha</button>
+            </div>
+          </div>
+          <div id="students-list"></div>
+        </div>
+
+        <div style="margin-top:16px;text-align:center">
+          <button class="btn btn-success btn-lg" onclick="saveAndClose()">💾 Simpan & Selesaikan Absensi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR Scanner Modal -->
+<div id="modal-scanner" class="modal-overlay hidden">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">📷 Scan QR Code Murid</div>
+      <button class="modal-close" onclick="stopScanner()">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div class="scanner-wrap" id="scanner-wrap">
+        <video id="scanner-video" autoplay playsinline muted></video>
+        <canvas id="scanner-canvas" style="display:none"></canvas>
+        <div class="scanner-overlay">
+          <div style="position:relative;width:200px;height:200px">
+            <div class="scanner-frame"></div>
+            <div class="scanner-line"></div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px">Arahkan kamera ke QR Code murid</p>
+      <div id="scan-result" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="stopScanner()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentUser = null;
+let currentSession = null;
+let scannerStream = null;
+let scannerInterval = null;
+let attendanceMap = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = Auth.require(ROLES.GURU);
+  if (!currentUser) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(currentUser);
+  document.getElementById('sel-date').value = DateUtils.today();
+  document.getElementById('sel-time-start').value = DateUtils.currentTime();
+  document.getElementById('sel-time-end').value = '09:00';
+
+  // Populate class select
+  const classes = Classes.getAll();
+  document.getElementById('sel-class').innerHTML = '<option value="">-- Pilih Kelas --</option>' + classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Populate mapel datalist from guru's subjects
+  const mapels = currentUser.mata_pelajaran || [];
+  document.getElementById('mapel-list-guru').innerHTML = mapels.map(m => `<option value="${m}">`).join('');
+
+  // Today's scheduled classes
+  renderTodaySchedule();
+
+  // Check URL param
+  const urlParams = new URLSearchParams(window.location.search);
+  const schId = urlParams.get('sch');
+  if (schId) {
+    const sch = Schedules.getAll().find(s => s.id === schId);
+    if (sch) startFromSchedule(sch);
+  }
+});
+
+function renderTodaySchedule() {
+  const today = DateUtils.currentDay();
+  const scheds = Schedules.getByGuru(currentUser.id).filter(s => s.day === today).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+  const el = document.getElementById('today-scheds-list');
+  el.innerHTML = scheds.length ? scheds.map(s => {
+    const cls = Classes.getById(s.classId);
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+      <div style="min-width:90px;text-align:center">
+        <div style="font-weight:800;font-size:15px">${s.jamMulai}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${s.jamSelesai}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:700">${s.mapel}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${cls?.name||'-'} · ${s.room||'-'}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="startFromSchedule(${JSON.stringify(s).replace(/"/g,'&quot;')})">▶️ Mulai</button>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:20px"><div class="icon">😴</div><p>Tidak ada jadwal hari ini</p></div>';
+}
+
+function startFromSchedule(sch) {
+  const cls = Classes.getById(sch.classId);
+  if (!cls) { toast('Kelas tidak ditemukan', 'error'); return; }
+  currentSession = Sessions.add({ classId: sch.classId, guruId: currentUser.id, mapel: sch.mapel, date: DateUtils.today(), jamMulai: sch.jamMulai, jamSelesai: sch.jamSelesai });
+  initAttendance(cls, sch.mapel, sch.jamMulai, sch.jamSelesai);
+}
+
+function startManualSession() {
+  const classId = document.getElementById('sel-class').value;
+  const mapel = document.getElementById('sel-mapel').value.trim();
+  const date = document.getElementById('sel-date').value;
+  const jamMulai = document.getElementById('sel-time-start').value;
+  const jamSelesai = document.getElementById('sel-time-end').value;
+  if (!classId || !mapel) { toast('Pilih kelas dan mata pelajaran', 'error'); return; }
+  const cls = Classes.getById(classId);
+  currentSession = Sessions.add({ classId, guruId: currentUser.id, mapel, date, jamMulai, jamSelesai });
+  initAttendance(cls, mapel, jamMulai, jamSelesai);
+}
+
+function initAttendance(cls, mapel, jamMulai, jamSelesai) {
+  attendanceMap = {};
+  const students = Students.getByClass(cls.id);
+  students.forEach(s => attendanceMap[s.id] = 'alpha');
+  document.getElementById('att-title').textContent = `${mapel} – ${cls.name}`;
+  document.getElementById('att-sub').textContent = `📅 ${DateUtils.format(currentSession.date)} · 🕐 ${jamMulai} – ${jamSelesai}`;
+  document.getElementById('step-setup').classList.add('hidden');
+  document.getElementById('step-attendance').classList.remove('hidden');
+  renderStudentList();
+  updateStats();
+}
+
+function renderStudentList() {
+  if (!currentSession) return;
+  const students = Students.getByClass(currentSession.classId);
+  const el = document.getElementById('students-list');
+  el.innerHTML = students.length ? students.map(s => {
+    const status = attendanceMap[s.id] || 'alpha';
+    return `<div class="attendance-item" id="att-row-${s.id}">
+      ${s.photo ? `<img src="${s.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover">` : `<div class="avatar">${Students.initials(s.name)}</div>`}
+      <div style="flex:1">
+        <div style="font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">NIM: ${s.nim}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${['hadir','izin','sakit','alpha'].map(st => `<button class="attendance-status-btn status-${st} ${status===st?'selected':''}" onclick="setStatus('${s.id}','${st}')">${statusLabel(st)}</button>`).join('')}
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state"><div class="icon">😢</div><p>Tidak ada murid di kelas ini</p></div>';
+}
+
+function statusLabel(s) { return {hadir:'✅ Hadir',alpha:'❌ Alpha',izin:'📄 Izin',sakit:'🏥 Sakit'}[s] || s; }
+
+function setStatus(studentId, status) {
+  attendanceMap[studentId] = status;
+  const row = document.getElementById(`att-row-${studentId}`);
+  if (row) {
+    row.querySelectorAll('.attendance-status-btn').forEach(btn => {
+      const st = btn.className.match(/status-(\w+)/)?.[1];
+      btn.classList.toggle('selected', st === status);
+    });
+  }
+  updateStats();
+}
+
+function markAll(status) {
+  const students = Students.getByClass(currentSession.classId);
+  students.forEach(s => { attendanceMap[s.id] = status; });
+  renderStudentList();
+  updateStats();
+}
+
+function updateStats() {
+  const vals = Object.values(attendanceMap);
+  const h = vals.filter(v=>v==='hadir').length, al = vals.filter(v=>v==='alpha').length, iz = vals.filter(v=>v==='izin').length, sk = vals.filter(v=>v==='sakit').length;
+  document.getElementById('att-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">${h}</div><div class="stat-label">Hadir</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">❌</div><div><div class="stat-value">${al}</div><div class="stat-label">Alpha</div></div></div>
+    <div class="stat-card"><div class="stat-icon yellow">📄</div><div><div class="stat-value">${iz}</div><div class="stat-label">Izin</div></div></div>
+    <div class="stat-card"><div class="stat-icon cyan">🏥</div><div><div class="stat-value">${sk}</div><div class="stat-label">Sakit</div></div></div>
+  `;
+}
+
+function saveAndClose() {
+  if (!currentSession) return;
+  Object.entries(attendanceMap).forEach(([studentId, status]) => {
+    Attendances.mark({ sessionId: currentSession.id, studentId, status, date: currentSession.date, mapel: currentSession.mapel, classId: currentSession.classId });
+  });
+  Sessions.close(currentSession.id);
+  toast('Absensi berhasil disimpan!', 'success');
+  setTimeout(() => window.location.href = 'index.html', 1000);
+}
+
+function closeSession() {
+  if (!confirmDialog('Tutup sesi tanpa menyimpan?')) return;
+  window.location.href = 'index.html';
+}
+
+// === QR Scanner ===
+async function openModal(id) {
+  document.getElementById(id)?.classList.remove('hidden');
+  if (id === 'modal-scanner') await startScanner();
+}
+function stopScanner() {
+  closeModal('modal-scanner');
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  if (scannerInterval) { clearInterval(scannerInterval); scannerInterval = null; }
+}
+async function startScanner() {
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream;
+    await video.play();
+    const canvas = document.getElementById('scanner-canvas');
+    const ctx = canvas.getContext('2d');
+    scannerInterval = setInterval(() => {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imgData.data, canvas.width, canvas.height);
+      if (code) processQRCode(code.data);
+    }, 300);
+  } catch(e) {
+    toast('Tidak bisa akses kamera: ' + e.message, 'error');
+    document.getElementById('scan-result').innerHTML = `
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.5);border-radius:8px">
+        <div style="font-size:12px;color:var(--danger);font-weight:700">⚠️ Akses Kamera Ditolak / Tidak Tersedia</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">Browser memblokir kamera jika website tidak menggunakan HTTPS atau localhost.<br><br>Silakan tutup layar ini dan gunakan <strong>tombol status manual</strong> (Hadir/Alpha/Izin) pada daftar murid.</div>
+      </div>
+    `;
+  }
+}
+function processQRCode(data) {
+  try {
+    const parsed = JSON.parse(data);
+    const student = Students.getById(parsed.id) || Students.getByNim(parsed.nim);
+    if (!student) { toast('Murid tidak ditemukan', 'error'); return; }
+    if (!currentSession || student.classId !== currentSession.classId) { toast('Murid bukan dari kelas ini', 'warning'); return; }
+    if (attendanceMap[student.id] === 'hadir') { toast(`${student.name} sudah diabsen`, 'warning'); return; }
+    setStatus(student.id, 'hadir');
+    document.getElementById('scan-result').innerHTML = `<div style="padding:12px;background:rgba(16,185,129,0.1);border:1px solid var(--success);border-radius:8px;color:var(--success);font-weight:600">✅ ${student.name} → Hadir</div>`;
+    setTimeout(() => { document.getElementById('scan-result').innerHTML = ''; }, 2000);
+  } catch(e) { toast('QR tidak valid', 'warning'); }
+}
+function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
+</script>
+</body>
+</html>

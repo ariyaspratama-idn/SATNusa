@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Guru - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-admin">👑</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Admin</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👨‍🎓</span> Data Murid</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">🏫</span> Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Pelajaran</a>
+      <a href="reports.html" class="nav-item"><span class="nav-icon">📋</span> Laporan Absensi</a>
+      <span class="nav-section-label">Akun</span>
+      <a href="users.html" class="nav-item active"><span class="nav-icon">👥</span> Manajemen Guru</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">👥 Manajemen Guru</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header flex justify-between items-center">
+        <div><h1 class="page-title">Manajemen Guru</h1><p class="page-sub">Kelola akun guru pengajar</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-add')">➕ Tambah Guru</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Guru</th><th>Username</th><th>Mata Pelajaran</th><th>Jadwal/Minggu</th><th>Aksi</th></tr></thead>
+            <tbody id="guru-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="modal-add" class="modal-overlay hidden">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">➕ Tambah Guru</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Nama Lengkap *</label><input type="text" id="add-name" class="form-control" placeholder="contoh: Andi Saputra, S.Pd"></div>
+      <div class="form-group"><label class="form-label">Username *</label><input type="text" id="add-username" class="form-control" placeholder="contoh: andi.saputra"></div>
+      <div class="form-group"><label class="form-label">Password *</label><input type="password" id="add-password" class="form-control" placeholder="Min 6 karakter"></div>
+      <div class="form-group"><label class="form-label">Mata Pelajaran (pisahkan dengan koma)</label><input type="text" id="add-mapel" class="form-control" placeholder="contoh: Matematika, Fisika"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add')">Batal</button>
+      <button class="btn btn-primary" onclick="addGuru()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.ADMIN);
+  if (!user) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+  renderTable();
+});
+function renderTable() {
+  const gurus = DB.getUsers().filter(u => u.role === ROLES.GURU);
+  const tbody = document.getElementById('guru-table');
+  tbody.innerHTML = gurus.length ? gurus.map(g => {
+    const schedCount = Schedules.getByGuru(g.id).length;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="background:var(--guru-grad);color:white">${Students.initials(g.name)}</div><div><div style="font-weight:600">${g.name}</div></div></div></td>
+      <td><code>${g.username}</code></td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:4px">${(g.mata_pelajaran||[]).map(m=>`<span class="badge badge-info">${m}</span>`).join('') || '<span class="text-muted">-</span>'}</div></td>
+      <td><span class="badge badge-primary">${schedCount} jadwal</span></td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteGuru('${g.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:30px">Belum ada guru</td></tr>';
+}
+function addGuru() {
+  const name = document.getElementById('add-name').value.trim();
+  const username = document.getElementById('add-username').value.trim();
+  const password = document.getElementById('add-password').value;
+  const mapelStr = document.getElementById('add-mapel').value;
+  if (!name || !username || !password) { toast('Isi semua field wajib', 'error'); return; }
+  if (password.length < 6) { toast('Password minimal 6 karakter', 'error'); return; }
+  const users = DB.getUsers();
+  if (users.find(u => u.username === username)) { toast('Username sudah digunakan', 'error'); return; }
+  const mata_pelajaran = mapelStr ? mapelStr.split(',').map(m => m.trim()).filter(Boolean) : [];
+  users.push({ id: genId('u'), role: ROLES.GURU, username, password, name, mata_pelajaran });
+  DB.setUsers(users);
+  toast('Guru berhasil ditambahkan!', 'success');
+  closeModal('modal-add');
+  document.getElementById('add-name').value=''; document.getElementById('add-username').value=''; document.getElementById('add-password').value=''; document.getElementById('add-mapel').value='';
+  renderTable();
+}
+function deleteGuru(id) {
+  if (Schedules.getByGuru(id).length) { toast('Guru masih memiliki jadwal. Hapus jadwalnya dulu.', 'error'); return; }
+  if (!confirmDialog('Hapus guru ini?')) return;
+  const users = DB.getUsers().filter(u => u.id !== id);
+  DB.setUsers(users);
+  toast('Guru dihapus', 'success');
+  renderTable();
+}
+</script>
+</body>
+</html>

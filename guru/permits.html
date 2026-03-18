@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengajuan Izin - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-guru">📚</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Guru</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="selfie-attend.html" class="nav-item"><span class="nav-icon">📸</span> Absensi Selfie</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Absensi Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Saya</a>
+      <a href="my-permits.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+      <a href="permits.html" class="nav-item active"><span class="nav-icon">🗂️</span> Izin Murid</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📄 Pengajuan Izin</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Review Pengajuan Izin</h1>
+        <p class="page-sub">Setujui atau tolak izin yang diajukan murid</p>
+      </div>
+
+      <!-- Filter tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <button class="btn btn-primary btn-sm" onclick="filterPermits('pending',this)" id="tab-pending">⏳ Pending (<span id="cnt-pending">0</span>)</button>
+        <button class="btn btn-outline btn-sm" onclick="filterPermits('approved',this)" id="tab-approved">✅ Disetujui</button>
+        <button class="btn btn-outline btn-sm" onclick="filterPermits('rejected',this)" id="tab-rejected">❌ Ditolak</button>
+        <button class="btn btn-outline btn-sm" onclick="filterPermits('all',this)" id="tab-all">📋 Semua</button>
+      </div>
+
+      <div id="permits-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detail Izin -->
+<div id="modal-detail" class="modal-overlay hidden">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">📄 Detail Pengajuan Izin</div>
+      <button class="modal-close" onclick="closeModal('modal-detail')">×</button>
+    </div>
+    <div class="modal-body" id="modal-detail-body"></div>
+    <div class="modal-footer" id="modal-detail-footer"></div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let currentFilter = 'pending';
+let currentUser;
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = Auth.require(ROLES.GURU);
+  if (!currentUser) return;
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(currentUser);
+  renderPermits();
+});
+
+function filterPermits(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('[id^="tab-"]').forEach(b => { b.className = 'btn btn-outline btn-sm'; });
+  btn.className = 'btn btn-primary btn-sm';
+  renderPermits();
+}
+
+function renderPermits() {
+  let permits = Permits.getAll();
+  const pending = permits.filter(p => p.status === 'pending');
+  document.getElementById('cnt-pending').textContent = pending.length;
+
+  if (currentFilter !== 'all') permits = permits.filter(p => p.status === currentFilter);
+  permits = permits.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+
+  const container = document.getElementById('permits-list');
+  if (!permits.length) {
+    container.innerHTML = `<div class="empty-state card"><div class="icon">📄</div><p>Tidak ada pengajuan ${currentFilter === 'all' ? '' : currentFilter}</p></div>`;
+    return;
+  }
+  container.innerHTML = permits.map(p => {
+    const s = Students.getById(p.studentId);
+    const cls = Classes.getById(s?.classId || '');
+    const statusBadge = { pending: 'badge-warning', approved: 'badge-success', rejected: 'badge-danger' }[p.status];
+    return `<div class="permit-card">
+      <div style="display:flex;align-items:center;gap:12px">
+        ${s?.photo ? `<img src="${s.photo}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">` : `<div class="avatar avatar-lg" style="width:44px;height:44px;background:var(--admin-grad);color:white">${Students.initials(s?.name||'?')}</div>`}
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px">${s?.name || '-'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${cls?.name || '-'} · NIM ${s?.nim || '-'}</div>
+          <div style="font-size:12px;margin-top:4px">
+            <strong>Alasan:</strong> ${p.reason || '-'} &nbsp;|&nbsp;
+            <strong>Periode:</strong> ${p.dateStart ? DateUtils.format(p.dateStart) : '-'} – ${p.dateEnd ? DateUtils.format(p.dateEnd) : '-'}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Diajukan: ${DateUtils.format(p.createdAt)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <span class="badge ${statusBadge}">${{pending:'⏳ Pending',approved:'✅ Disetujui',rejected:'❌ Ditolak'}[p.status]}</span>
+          <button class="btn btn-sm btn-secondary" onclick="showDetail('${p.id}')">📋 Detail</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showDetail(id) {
+  const p = Permits.getAll().find(x => x.id === id);
+  if (!p) return;
+  const s = Students.getById(p.studentId);
+  const cls = Classes.getById(s?.classId || '');
+
+  document.getElementById('modal-detail-body').innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+      ${s?.photo ? `<img src="${s.photo}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid var(--border)">` : `<div class="avatar avatar-lg" style="width:70px;height:70px">${Students.initials(s?.name||'?')}</div>`}
+      <div>
+        <div style="font-size:20px;font-weight:800">${s?.name||'-'}</div>
+        <div style="color:var(--text-muted)">${cls?.name||'-'} · NIM: ${s?.nim||'-'}</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div><div class="form-label">Jenis Izin</div><div style="font-weight:600">${p.type || 'Izin'}</div></div>
+      <div><div class="form-label">Status</div><span class="badge ${{pending:'badge-warning',approved:'badge-success',rejected:'badge-danger'}[p.status]}">${p.status}</span></div>
+    </div>
+    <hr class="divider">
+    <div class="form-label">Alasan / Keterangan</div>
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px">${p.reason || '-'}</div>
+    <div class="grid-2">
+      <div><div class="form-label">Tanggal Mulai</div><div>${p.dateStart ? DateUtils.format(p.dateStart) : '-'}</div></div>
+      <div><div class="form-label">Tanggal Selesai</div><div>${p.dateEnd ? DateUtils.format(p.dateEnd) : '-'}</div></div>
+    </div>
+    ${p.attachment ? `<hr class="divider"><div class="form-label">Lampiran Bukti</div><img src="${p.attachment}" style="max-width:100%;max-height:300px;border-radius:8px;margin-top:8px;object-fit:contain">` : ''}
+    ${p.status !== 'pending' ? `<hr class="divider"><div style="color:var(--text-muted);font-size:13px">Diproses oleh <strong>${p.reviewedBy||'-'}</strong> pada ${p.reviewedAt ? DateUtils.format(p.reviewedAt) : '-'}${p.rejectReason ? `<br>Alasan penolakan: <strong>${p.rejectReason}</strong>` : ''}</div>` : ''}
+  `;
+
+  const footer = document.getElementById('modal-detail-footer');
+  footer.innerHTML = p.status === 'pending'
+    ? `<button class="btn btn-secondary" onclick="closeModal('modal-detail')">Tutup</button>
+       <button class="btn btn-danger" onclick="rejectPermit('${p.id}')">❌ Tolak</button>
+       <button class="btn btn-success" onclick="approvePermit('${p.id}')">✅ Setujui</button>`
+    : `<button class="btn btn-secondary" onclick="closeModal('modal-detail')">Tutup</button>`;
+
+  openModal('modal-detail');
+}
+
+function approvePermit(id) {
+  Permits.approve(id, currentUser.id, currentUser.name);
+  // Mark the student attendance as izin for relevant sessions
+  const p = Permits.getAll().find(x => x.id === id);
+  if (p) {
+    const sessions = Sessions.getAll().filter(s => s.classId === Students.getById(p.studentId)?.classId && s.date >= p.dateStart && s.date <= p.dateEnd);
+    sessions.forEach(s => Attendances.mark({ sessionId: s.id, studentId: p.studentId, status: 'izin', date: s.date, mapel: s.mapel, classId: s.classId }));
+  }
+  toast('Izin disetujui!', 'success');
+  closeModal('modal-detail');
+  renderPermits();
+}
+
+function rejectPermit(id) {
+  const reason = prompt('Alasan penolakan (opsional):') || '';
+  Permits.reject(id, currentUser.id, currentUser.name, reason);
+  toast('Izin ditolak', 'warning');
+  closeModal('modal-detail');
+  renderPermits();
+}
+
+function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
+</script>
+</body>
+</html>

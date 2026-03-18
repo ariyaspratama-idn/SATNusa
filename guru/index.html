@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Guru - AbsensiPro</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon brand-guru">📚</div>
+      <div><div class="sidebar-brand-text">AbsensiPro</div><div class="sidebar-brand-role">Panel Guru</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Menu</span>
+      <a href="index.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="selfie-attend.html" class="nav-item"><span class="nav-icon">📸</span> Absensi Selfie</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Absensi Kelas</a>
+      <a href="schedule.html" class="nav-item"><span class="nav-icon">📅</span> Jadwal Saya</a>
+      <a href="my-permits.html" class="nav-item"><span class="nav-icon">📄</span> Pengajuan Izin</a>
+      <a href="permits.html" class="nav-item" id="nav-permits"><span class="nav-icon">🗂️</span> Izin Murid</a>
+    </nav>
+    <div class="sidebar-footer"><div id="sidebar-user"></div></div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">📊 Dashboard Guru</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">Selamat Datang, <span id="guru-name"></span>! 📚</h1>
+        <p class="page-sub">Ringkasan aktivitas mengajar Anda</p>
+      </div>
+
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📅 Jadwal Hari Ini</div><a href="attendance.html" class="btn btn-sm btn-primary">+ Buat Absensi</a></div>
+          <div id="today-schedule"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">📄 Izin Menunggu Review</div><a href="permits.html" class="btn btn-sm btn-secondary">Lihat Semua</a></div>
+          <div id="pending-permits"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 Sesi Absensi Terakhir</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Mata Pelajaran</th><th>Kelas</th><th>Hadir</th><th>Alpha</th><th>Status</th></tr></thead>
+            <tbody id="sessions-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.require(ROLES.GURU);
+  if (!user) return;
+  document.getElementById('guru-name').textContent = user.name.split(',')[0];
+  document.getElementById('sidebar-user').innerHTML = renderSidebarUser(user);
+
+  const myScheds = Schedules.getByGuru(user.id);
+  const mySessions = Sessions.getAll().filter(s => s.guruId === user.id);
+  const allAtt = Attendances.getAll().filter(a => mySessions.some(s => s.id === a.sessionId));
+  const pending = Permits.getPending();
+
+  // Update permit badge
+  if (pending.length) {
+    document.getElementById('nav-permits').innerHTML = `<span class="nav-icon">📄</span> Pengajuan Izin <span class="nav-badge">${pending.length}</span>`;
+  }
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon cyan">📅</div><div><div class="stat-value">${myScheds.length}</div><div class="stat-label">Jadwal/Minggu</div></div></div>
+    <div class="stat-card"><div class="stat-icon indigo">📋</div><div><div class="stat-value">${mySessions.length}</div><div class="stat-label">Total Sesi</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">${allAtt.filter(a=>a.status==='hadir').length}</div><div class="stat-label">Total Hadir</div></div></div>
+    <div class="stat-card"><div class="stat-icon yellow">📄</div><div><div class="stat-value">${pending.length}</div><div class="stat-label">Izin Pending</div></div></div>
+  `;
+
+  // Today's schedule
+  const today = DateUtils.currentDay();
+  const todayScheds = myScheds.filter(s => s.day === today).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+  const todayEl = document.getElementById('today-schedule');
+  todayEl.innerHTML = todayScheds.length ? todayScheds.map(s => {
+    const cls = Classes.getById(s.classId);
+    return `<div class="schedule-slot" style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;">
+      <div class="schedule-time"><div style="font-weight:700;color:var(--text)">${s.jamMulai}</div><div>${s.jamSelesai}</div></div>
+      <div class="schedule-mapel" style="flex:1">
+        <div class="schedule-mapel-name">${s.mapel}</div>
+        <div class="schedule-mapel-class">${cls?.name||'-'} · ${s.room||'-'}</div>
+      </div>
+      <a href="attendance.html?sch=${s.id}" class="btn btn-sm btn-primary" style="margin:10px 10px 10px 0;align-self:center">Absen</a>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:20px"><div class="icon">☀️</div><p>Tidak ada jadwal hari ini</p></div>';
+
+  // Pending permits
+  const permEl = document.getElementById('pending-permits');
+  const relevantPermits = pending.slice(0,3);
+  permEl.innerHTML = relevantPermits.length ? relevantPermits.map(p => {
+    const s = Students.getById(p.studentId);
+    return `<div class="permit-card" style="cursor:pointer" onclick="location.href='permits.html'">
+      <div style="display:flex;align-items:center;gap:10px">
+        ${s?.photo?`<img src="${s.photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`:`<div class="avatar">${Students.initials(s?.name||'?')}</div>`}
+        <div><div style="font-weight:600;font-size:14px">${s?.name||'-'}</div><div style="font-size:12px;color:var(--text-muted)">${p.reason||'-'}</div></div>
+        <span class="badge badge-warning" style="margin-left:auto">Pending</span>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:20px"><div class="icon">✅</div><p>Tidak ada pengajuan pending</p></div>';
+
+  // Sessions
+  const recent = [...mySessions].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);
+  const tbody = document.getElementById('sessions-table');
+  tbody.innerHTML = recent.length ? recent.map(ses => {
+    const att = Attendances.getBySession(ses.id);
+    const cls = Classes.getById(ses.classId);
+    return `<tr>
+      <td>${DateUtils.format(ses.date||ses.createdAt)}</td>
+      <td><strong>${ses.mapel||'-'}</strong></td>
+      <td><span class="badge badge-primary">${cls?.name||'-'}</span></td>
+      <td><span style="color:var(--success);font-weight:700">${att.filter(a=>a.status==='hadir').length}</span></td>
+      <td><span style="color:var(--danger);font-weight:700">${att.filter(a=>a.status==='alpha').length}</span></td>
+      <td><span class="badge badge-${ses.status==='open'?'warning':'muted'}">${ses.status==='open'?'Berlangsung':'Selesai'}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="text-center text-muted" style="padding:20px">Belum ada sesi</td></tr>';
+});
+</script>
+</body>
+</html>

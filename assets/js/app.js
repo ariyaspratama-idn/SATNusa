@@ -1,5 +1,37 @@
-// ============================================================
-// APP.JS - Core Logic for Sistem Absensi
+// Global Loader Functions
+function showLoader() {
+  document.getElementById('global-loader')?.classList.remove('hidden');
+}
+function hideLoader() {
+  const loader = document.getElementById('global-loader');
+  if (loader) {
+    loader.classList.add('hidden');
+    // Remove from DOM after transition
+    setTimeout(() => loader.style.display = 'none', 600);
+  }
+}
+
+// Inject Global Loader HTML on Load
+(function injectLoader() {
+  if (document.getElementById('global-loader')) return;
+  const loaderHTML = `
+    <div id="global-loader" class="global-loader">
+      <div class="loader-content">
+        <img src="${window.location.origin.includes('github.io') || window.location.origin.includes('vercel.app') ? '/assets/img/logo.png' : '../assets/img/logo.png'}" 
+             onerror="this.src='/assets/img/logo.png'"
+             class="loader-logo" alt="SATNusa">
+        <div class="loader-spinner"></div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('afterbegin', loaderHTML);
+  
+  // Auto-hide after page is fully loaded
+  window.addEventListener('load', () => setTimeout(hideLoader, 800));
+  // Fallback
+  setTimeout(hideLoader, 3000);
+})();
+
 // ============================================================
 
 // ===== Constants =====

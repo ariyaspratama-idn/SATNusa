@@ -510,4 +510,31 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  // Setup Theme Toggle (Dark/Light Mode)
+  if (topbar) {
+    const themeBtn = document.createElement('button');
+    themeBtn.className = 'btn-theme-toggle';
+    themeBtn.innerHTML = '☀️';
+    themeBtn.style.cssText = 'background:transparent; border:none; font-size:22px; cursor:pointer; margin-left:12px; transition:0.3s;';
+    themeBtn.title = 'Ubah Tema';
+    topbar.appendChild(themeBtn);
+
+    // Initial Check
+    const savedTheme = localStorage.getItem('abs_theme') || 'dark';
+    if (savedTheme === 'light') {
+      document.documentElement.classList.add('light-theme');
+      themeBtn.innerHTML = '🌙';
+    }
+
+    themeBtn.addEventListener('click', () => {
+      const isLight = document.documentElement.classList.toggle('light-theme');
+      themeBtn.innerHTML = isLight ? '🌙' : '☀️';
+      localStorage.setItem('abs_theme', isLight ? 'light' : 'dark');
+      
+      // Animasi muter kecil hehe
+      themeBtn.style.transform = 'rotate(360deg)';
+      setTimeout(() => themeBtn.style.transform = 'none', 300);
+    });
+  }
 });

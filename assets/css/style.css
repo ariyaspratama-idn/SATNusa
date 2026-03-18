@@ -38,6 +38,23 @@
   --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
 }
 
+/* ========== Light Theme Variables ========== */
+:root.light-theme {
+  --bg: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-card2: #F1F5F9;
+  --bg-input: #FFFFFF;
+  --border: rgba(0,0,0,0.1);
+  --border-focus: rgba(79,70,229,0.4);
+
+  --text: #0F172A;
+  --text-muted: #64748B;
+  --text-dim: #94A3B8;
+
+  --shadow: 0 4px 20px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
+}
+
 /* ========== Reset ========== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

@@ -472,4 +472,42 @@ document.addEventListener('DOMContentLoaded', () => {
   seedData();
   updateTopbarDate();
   setInterval(updateTopbarDate, 60000);
+
+  // Setup Responsive Mobile Menu Toggle
+  const topbar = document.querySelector('.topbar');
+  const sidebar = document.querySelector('.sidebar');
+  if (topbar && sidebar) {
+    // Inject Hamburger Button
+    const btn = document.createElement('button');
+    btn.className = 'btn-menu-toggle';
+    btn.innerHTML = '☰';
+    topbar.insertBefore(btn, topbar.firstChild);
+
+    // Inject Overlay for Mobile
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    // Event Listeners
+    btn.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('show');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    });
+    
+    // Auto-close sidebar on nav click in mobile
+    const navItems = sidebar.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('show');
+        }
+      });
+    });
+  }
 });

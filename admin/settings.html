@@ -17,11 +17,22 @@
       color: var(--text) !important;
       padding: 12px 16px !important;
       border-radius: 8px !important;
+      transition: all 0.3s;
+    }
+    html.light-theme .form-input {
+      background: #fff !important;
+      border: 1px solid #ced4da !important;
+      color: #212529 !important;
     }
     .form-input:focus {
       border-color: var(--primary-light) !important;
       background: rgba(255,255,255,0.1) !important;
       outline: none;
+      box-shadow: 0 0 0 3px rgba(79,70,229,0.1) !important;
+    }
+    html.light-theme .form-input:focus {
+      background: #fff !important;
+      border-color: var(--primary) !important;
     }
 
     /* Leaflet Dark UI */
@@ -30,14 +41,52 @@
       color: #f8fafc !important;
       border-bottom: 1px solid #334155 !important;
     }
+    html.light-theme .leaflet-control-zoom-in, 
+    html.light-theme .leaflet-control-zoom-out {
+      background: #fff !important;
+      color: #334155 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+    }
     .leaflet-bar { border: 1px solid #334155 !important; box-shadow: none !important; }
+    html.light-theme .leaflet-bar { border: 1px solid #e2e8f0 !important; }
     .leaflet-container { background: #0f172a !important; }
+    html.light-theme .leaflet-container { background: #f8fafc !important; }
     .leaflet-control-attribution { 
       background: rgba(0,0,0,0.5) !important; 
       color: #94a3b8 !important; 
       font-size: 9px !important;
     }
     .leaflet-control-attribution a { color: var(--primary-light) !important; }
+
+    /* Theme-aware Alert */
+    .settings-alert {
+      font-size: 13px;
+      padding: 16px;
+      background: rgba(79,70,229,0.08);
+      border: 1px solid rgba(79,70,229,0.2);
+      color: var(--text);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    html.light-theme .settings-alert {
+      background: #f0f4ff;
+      border-color: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    html.light-theme .btn-secondary {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #475569;
+    }
   </style>
 </head>
 <body>
@@ -106,8 +155,11 @@
             <p class="mt-2 text-muted" style="font-size:12px;">Guru harus berada dalam jarak ini dari titik koordinat untuk bisa absen.</p>
           </div>
           
-          <div class="alert alert-info mb-4" style="font-size:13px; padding:12px; background:rgba(79,70,229,0.1); border:1px solid var(--primary-light); color:var(--text); border-radius:8px;">
-            <strong>💡 Tips:</strong> Gunakan Google Maps untuk mendapatkan koordinat sekolah Anda. Klik kanan pada titik sekolah di peta untuk melihat Latitude dan Longitude.
+          <div class="settings-alert">
+            <span>💡</span>
+            <div>
+              <strong>Tips:</strong> Gunakan Google Maps untuk mendapatkan koordinat sekolah Anda. Klik kanan pada titik sekolah di peta untuk melihat Latitude dan Longitude.
+            </div>
           </div>
 
           <div style="display:flex; gap:10px;">
@@ -144,12 +196,31 @@ document.addEventListener('DOMContentLoaded', () => {
   inputRadius.value = currentSettings.radius;
 
   // Initialize Map
+  const isLight = document.documentElement.classList.contains('light-theme');
   const map = L.map('map').setView([currentSettings.lat, currentSettings.lng], 15);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  
+  const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 20
-  }).addTo(map);
+    subdomains: 'abcd', maxZoom: 20
+  });
+  
+  const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 20
+  });
+
+  (isLight ? lightTiles : darkTiles).addTo(map);
+
+  // Theme observer to switch map tiles
+  const observer = new MutationObserver(() => {
+    const lightNow = document.documentElement.classList.contains('light-theme');
+    if (lightNow) {
+      if (map.hasLayer(darkTiles)) { map.removeLayer(darkTiles); lightTiles.addTo(map); }
+    } else {
+      if (map.hasLayer(lightTiles)) { map.removeLayer(lightTiles); darkTiles.addTo(map); }
+    }
+  });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
   // Marker
   const marker = L.marker([currentSettings.lat, currentSettings.lng], { draggable: true }).addTo(map);
